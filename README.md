@@ -10,6 +10,7 @@ Run the app locally:
 ```bash
 cd app
 npm install
+cp .env.example .env
 npm run dev:api
 ```
 
@@ -20,3 +21,5 @@ npm run dev
 ```
 
 Open `http://127.0.0.1:5174/`.
+
+Before using Gmail or AI features, configure local secrets in `app/.env` and add your own Google OAuth `client_secret_*.json` file. See `app/CONFIGURATION.md`.
