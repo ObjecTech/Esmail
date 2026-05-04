@@ -1,9 +1,0 @@
-{
-  "web": {
-    "client_id": "replace_with_google_oauth_client_id",
-    "client_secret": "replace_with_google_oauth_client_secret",
-    "redirect_uris": [
-      "http://127.0.0.1:5175/api/auth/google/callback"
-    ]
-  }
-}

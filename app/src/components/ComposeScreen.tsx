@@ -1,4 +1,4 @@
-import { ArrowUp, AtSign, Camera, File, Globe2, Image, MoreHorizontal, Paperclip, SendHorizonal, Sparkles, X } from "lucide-react";
+import { ArrowUp, AtSign, Camera, File, Globe2, Image, Paperclip, SendHorizonal, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Draft, Language } from "../types";
 import { IconButton } from "./IconButton";
@@ -82,7 +82,7 @@ export function ComposeScreen({ accountEmail, canSend, language, onClose, onGene
     signature: language === "zh" ? "签名" : "Signature",
     attachment: language === "zh" ? "附件" : "Attachment",
     send: language === "zh" ? "发送" : "Send",
-    more: language === "zh" ? "更多" : "More",
+    discard: language === "zh" ? "丢弃" : "Discard",
     to: language === "zh" ? "发送给:" : "To:",
     from: language === "zh" ? "来自:" : "From:",
     subject: language === "zh" ? "主题" : "Subject",
@@ -102,6 +102,13 @@ export function ComposeScreen({ accountEmail, canSend, language, onClose, onGene
     setStatus(language === "zh" ? `已选择 ${names.length} 个附件` : `${names.length} attachment(s) selected`);
   }
 
+  function discard() {
+    const hasDraft = Boolean(recipient.trim() || subject.trim() || body.trim() || idea.trim() || attachments.length);
+    if (!hasDraft || window.confirm(language === "zh" ? "丢弃这封草稿？" : "Discard this draft?")) {
+      onClose();
+    }
+  }
+
   return (
     <section className="screen-section compose-screen">
       <header className="compose-toolbar">
@@ -115,9 +122,9 @@ export function ComposeScreen({ accountEmail, canSend, language, onClose, onGene
           <IconButton className="send-blue" disabled={isSending} label={copy.send} onClick={() => void send()}>
             <SendHorizonal size={23} />
           </IconButton>
-          <IconButton label={copy.more}>
-            <MoreHorizontal size={27} />
-          </IconButton>
+          <button className="discard-action" onClick={discard} type="button">
+            {copy.discard}
+          </button>
         </div>
       </header>
 

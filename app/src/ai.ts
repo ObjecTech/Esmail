@@ -1,4 +1,150 @@
-import type { AssistantReply, Draft, Email, Language } from "./types";
+import type { AssistantReply, Draft, Email, EmailCitation, Language } from "./types";
+import { emailCategoryIds } from "./rules";
+
+const intentTerms = {
+  zh: {
+    today: ["今天", "今日"],
+    important: ["重要", "紧急", "截止", "待办"],
+    unread: ["未读"],
+    search: ["找", "查", "看到", "记得", "哪封", "邮件"]
+  },
+  en: {
+    today: ["today"],
+    important: ["important", "urgent", "deadline", "due", "todo", "action"],
+    unread: ["unread"],
+    search: ["find", "search", "saw", "remember", "email", "mail"]
+  }
+};
+
+function normalizeText(text: string) {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}\s]+/gu, " ");
+}
+
+function promptTokens(prompt: string) {
+  const normalized = normalizeText(prompt);
+  const latinTokens = normalized.split(/\s+/).filter((token) => token.length >= 2);
+  const cjkTokens = (prompt.match(/[\u4e00-\u9fff]{2,}/g) || []).flatMap((segment) => {
+    const bigrams = Array.from({ length: Math.max(0, segment.length - 1) }, (_, index) => segment.slice(index, index + 2));
+    return [segment, ...bigrams];
+  });
+  const semanticTokens: string[] = [];
+  if (/[考试]/.test(prompt)) semanticTokens.push("exam", "final");
+  if (prompt.includes("安排") || prompt.includes("日程") || prompt.includes("时间")) semanticTokens.push("schedule", "arrangement", "timetable");
+  if (prompt.includes("王超群") || prompt.includes("超群")) semanticTokens.push("chaoqun", "wang");
+  return Array.from(new Set([...latinTokens, ...cjkTokens, ...semanticTokens]));
+}
+
+function includesAny(prompt: string, terms: string[]) {
+  const normalized = prompt.toLowerCase();
+  return terms.some((term) => normalized.includes(term.toLowerCase()));
+}
+
+function relevantText(email: Email) {
+  return [
+    email.senderName,
+    email.senderEmail,
+    email.subject,
+    email.snippet,
+    email.body,
+    email.dateLabel,
+    email.categoryId,
+    email.fallbackCategoryId,
+    ...(email.categoryIds || []),
+    ...(email.fallbackCategoryIds || []),
+    ...(email.summaryBullets || [])
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function excerptFor(email: Email, tokens: string[]) {
+  const source = email.body || email.snippet || email.subject;
+  if (source.length <= 180) return source;
+  const normalizedSource = source.toLowerCase();
+  const matched = tokens.find((token) => normalizedSource.includes(token.toLowerCase()));
+  if (!matched) return (email.snippet || source).slice(0, 150);
+  const index = normalizedSource.indexOf(matched.toLowerCase());
+  const start = Math.max(0, index - 45);
+  const end = Math.min(source.length, index + matched.length + 95);
+  return `${start > 0 ? "..." : ""}${source.slice(start, end)}${end < source.length ? "..." : ""}`;
+}
+
+function citationMatchPercent(score: number) {
+  return Math.min(99, Math.round(score * 2.2));
+}
+
+export function isSearchLikePrompt(prompt: string, language: Language = "zh") {
+  const terms = language === "en" ? intentTerms.en : intentTerms.zh;
+  const normalized = prompt.toLowerCase();
+  return (
+    includesAny(prompt, terms.search) ||
+    includesAny(prompt, terms.important) ||
+    includesAny(prompt, terms.unread) ||
+    normalized.includes("summary") ||
+    normalized.includes("summarize")
+  );
+}
+
+export function findRelevantEmailCitations(prompt: string, emails: Email[] = [], language: Language = "zh"): EmailCitation[] {
+  const ignoredTokens = new Set([
+    "邮件",
+    "邮箱",
+    "email",
+    "mail",
+    "看到",
+    "之前",
+    "帮我",
+    "老师",
+    "对于",
+    "哪里",
+    "xjtlu",
+    "edu",
+    "cn",
+    "com",
+    "org",
+    "net"
+  ]);
+  const tokens = promptTokens(prompt).filter((token) => !ignoredTokens.has(token.toLowerCase()));
+  const terms = language === "en" ? intentTerms.en : intentTerms.zh;
+  const wantsToday = includesAny(prompt, terms.today);
+  const wantsImportant = includesAny(prompt, terms.important);
+  const wantsUnread = includesAny(prompt, terms.unread);
+  const priorityScore = { high: 6, medium: 3, low: 0 };
+
+  return emails
+    .filter((email) => !email.deleted && !email.archived)
+    .map((email) => {
+      const categoryIds = emailCategoryIds(email);
+      const haystack = normalizeText(relevantText(email));
+      const tokenScore = tokens.reduce((score, token) => {
+        const normalizedToken = normalizeText(token).trim();
+        if (!normalizedToken) return score;
+        if (!haystack.includes(normalizedToken)) return score;
+        if (normalizeText(email.subject).includes(normalizedToken)) return score + 20;
+        if (normalizeText(email.senderName).includes(normalizedToken) || normalizeText(email.senderEmail).includes(normalizedToken)) return score + 16;
+        return score + 10;
+      }, 0);
+      const todayScore = wantsToday && ["今天", "today"].includes(String(email.dateLabel).toLowerCase()) ? 14 : 0;
+      const importantScore = wantsImportant && (email.priority === "high" || categoryIds.includes("deadline")) ? 24 : 0;
+      const unreadScore = wantsUnread && email.unread !== false ? 6 : 0;
+      const intentScore = todayScore + importantScore + unreadScore;
+      const categoryScore = intentScore || tokenScore ? (categoryIds.includes("deadline") ? 6 : categoryIds.includes("course") ? 5 : 0) : 0;
+      const score = tokenScore + intentScore + categoryScore + (intentScore || tokenScore ? priorityScore[email.priority] : 0);
+      const matchPercent = citationMatchPercent(score);
+
+      return {
+        email,
+        score,
+        matchLabel: language === "en" ? `${matchPercent}% match` : `${matchPercent}% 匹配`,
+        excerpt: excerptFor(email, tokens),
+        summaryBullets: email.summaryBullets?.length ? email.summaryBullets.slice(0, 3) : [email.snippet || email.subject],
+        categoryIds
+      };
+    })
+    .filter((citation) => citationMatchPercent(citation.score) >= 70)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+}
 
 function relevantEmails(prompt: string, emails: Email[]) {
   const normalized = prompt.toLowerCase();
@@ -11,7 +157,7 @@ function relevantEmails(prompt: string, emails: Email[]) {
     return emails.filter((email) => {
       if (email.deleted || email.archived) return false;
       if (options.today && !["今天", "today"].includes(String(email.dateLabel).toLowerCase())) return false;
-      if (options.important && email.priority !== "high" && (email.categoryId || email.fallbackCategoryId) !== "important") return false;
+      if (options.important && email.priority !== "high" && !emailCategoryIds(email).includes("deadline")) return false;
       if (options.unread && email.unread === false) return false;
       return true;
     });

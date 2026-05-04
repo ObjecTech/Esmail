@@ -1,0 +1,8 @@
+.env
+.env.*
+.data/
+client_secret_*.json
+node_modules/
+dist/
+output/
+.playwright-cli/

@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { buildChatPayload, buildContextualChatPrompt, fallbackChatReply, shouldAnswerFromInboxContext, soundsLikeMissingMailboxAccess, summarizeAnalysisPrompt } from "./ai.mjs";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildChatPayload, buildContextualChatPrompt, callChatAnywhere, fallbackChatReply, shouldAnswerFromInboxContext, soundsLikeMissingMailboxAccess, summarizeAnalysisPrompt } from "./ai.mjs";
+
+const originalFetch = global.fetch;
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  global.fetch = originalFetch;
+});
 
 describe("server AI helpers", () => {
   it("builds ChatAnywhere chat-completions payloads for GPT-5 mini", () => {
@@ -107,5 +115,29 @@ describe("server AI helpers", () => {
     expect(shouldAnswerFromInboxContext("总结今天未读的重要邮件")).toBe(true);
     expect(shouldAnswerFromInboxContext("Summarize important unread emails")).toBe(true);
     expect(shouldAnswerFromInboxContext("帮我写一封感谢邮件")).toBe(false);
+  });
+
+  it("aborts slow ChatAnywhere requests so chat can fall back", async () => {
+    vi.useFakeTimers();
+    global.fetch = vi.fn((_url, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        const error = new Error("aborted");
+        error.name = "AbortError";
+        reject(error);
+      });
+    }));
+
+    const request = callChatAnywhere({
+      apiKey: "test-key",
+      baseUrl: "https://example.test/v1",
+      model: "gpt-5-mini",
+      messages: [{ role: "user", content: "hello" }],
+      timeoutMs: 50
+    });
+    const expectation = expect(request).rejects.toThrow("timed out");
+    await vi.advanceTimersByTimeAsync(50);
+
+    await expectation;
+    expect(global.fetch.mock.calls[0][1].signal).toBeTruthy();
   });
 });

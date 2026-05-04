@@ -5,6 +5,7 @@ import {
   Hexagon,
   Inbox,
   Languages,
+  Palette,
   Send,
   ShieldAlert,
   Plus,
@@ -14,7 +15,8 @@ import {
   X
 } from "lucide-react";
 import { categoryLabel, text } from "../language";
-import type { Category, Language, MailboxView } from "../types";
+import type { MailboxCounts } from "../mailboxCounts";
+import type { Category, Language, MailboxView, Theme } from "../types";
 
 interface SideMenuProps {
   categories: Category[];
@@ -22,13 +24,16 @@ interface SideMenuProps {
   inboxCount: number;
   isOpen: boolean;
   language: Language;
+  mailboxCounts: MailboxCounts;
   mailboxView: MailboxView;
+  theme: Theme;
   onCategorySelect: (categoryId: string) => void;
   onClose: () => void;
   onMailboxSelect: (view: MailboxView) => void;
   onOpenSettings: () => void;
   onOpenSmartLabel: () => void;
   onToggleLanguage: () => void;
+  onToggleTheme: () => void;
 }
 
 export function SideMenu({
@@ -37,24 +42,31 @@ export function SideMenu({
   inboxCount,
   isOpen,
   language,
+  mailboxCounts,
   mailboxView,
+  theme,
   onCategorySelect,
   onClose,
   onMailboxSelect,
   onOpenSettings,
   onOpenSmartLabel,
-  onToggleLanguage
+  onToggleLanguage,
+  onToggleTheme
 }: SideMenuProps) {
   const folderRows: Array<{ view: MailboxView; label: string; icon: typeof Archive; count?: string | number }> = [
-    { view: "all", label: text(language, "allMail"), icon: Archive },
-    { view: "starred", label: text(language, "starred"), icon: Star },
-    { view: "snoozed", label: language === "zh" ? "已延后" : "Snoozed", icon: Clock },
-    { view: "drafts", label: text(language, "drafts"), icon: FileText, count: 1 },
-    { view: "sent", label: language === "zh" ? "已发送" : "Sent", icon: Send },
-    { view: "archive", label: language === "zh" ? "归档" : "Archive", icon: Archive },
-    { view: "spam", label: language === "zh" ? "垃圾邮件" : "Spam", icon: ShieldAlert },
-    { view: "trash", label: language === "zh" ? "回收站" : "Trash", icon: Trash2 }
+    { view: "all", label: text(language, "allMail"), icon: Archive, count: mailboxCounts.all },
+    { view: "starred", label: text(language, "starred"), icon: Star, count: mailboxCounts.starred },
+    { view: "snoozed", label: language === "zh" ? "已延后" : "Snoozed", icon: Clock, count: mailboxCounts.snoozed },
+    { view: "drafts", label: text(language, "drafts"), icon: FileText, count: mailboxCounts.drafts },
+    { view: "sent", label: language === "zh" ? "已发送" : "Sent", icon: Send, count: mailboxCounts.sent },
+    { view: "archive", label: language === "zh" ? "归档" : "Archive", icon: Archive, count: mailboxCounts.archive },
+    { view: "spam", label: language === "zh" ? "垃圾邮件" : "Spam", icon: ShieldAlert, count: mailboxCounts.spam },
+    { view: "trash", label: language === "zh" ? "回收站" : "Trash", icon: Trash2, count: mailboxCounts.trash }
   ];
+  const themeLabels: Record<Theme, string> = {
+    classic: language === "zh" ? "经典深蓝" : "Classic",
+    white: language === "zh" ? "白色" : "White"
+  };
 
   return (
     <div className={`menu-layer ${isOpen ? "menu-layer-open" : ""}`} aria-hidden={!isOpen}>
@@ -148,6 +160,11 @@ export function SideMenu({
             <Languages size={25} />
             <span>{text(language, "language")}</span>
             <strong>{language === "zh" ? "中文" : "EN"}</strong>
+          </button>
+          <button className="menu-row" onClick={onToggleTheme} type="button">
+            <Palette size={25} />
+            <span>{language === "zh" ? "主题" : "Theme"}</span>
+            <strong>{themeLabels[theme]}</strong>
           </button>
         </div>
       </aside>

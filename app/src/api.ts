@@ -1,18 +1,30 @@
 import type { AccountSession, AssistantReply, Draft, Email, InboxAnalysis, Language } from "./types";
 
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {})
+async function apiFetch<T>(url: string, init?: RequestInit, options: { timeoutMs?: number } = {}): Promise<T> {
+  const controller = options.timeoutMs ? new AbortController() : null;
+  const timeout = controller ? window.setTimeout(() => controller.abort(), options.timeoutMs) : undefined;
+  try {
+    const response = await fetch(url, {
+      ...init,
+      signal: init?.signal || controller?.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers || {})
+      }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || `Request failed with ${response.status}`);
     }
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error || `Request failed with ${response.status}`);
+    return data as T;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Request timed out after ${options.timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    if (timeout) window.clearTimeout(timeout);
   }
-  return data as T;
 }
 
 function assistantReplyFromText(text: string): AssistantReply {
@@ -58,11 +70,16 @@ export async function getGmailMessages() {
   return data.emails;
 }
 
+export async function getEmailMessage(messageId: string) {
+  const data = await apiFetch<{ email: Email }>(`/api/gmail/messages/${encodeURIComponent(messageId)}`);
+  return data.email;
+}
+
 export async function askAssistant(prompt: string, language: Language, emails: Email[] = []) {
   const data = await apiFetch<{ content: string }>("/api/ai/chat", {
     method: "POST",
     body: JSON.stringify({ prompt, language, emails })
-  });
+  }, { timeoutMs: 10_000 });
   return assistantReplyFromText(data.content);
 }
 

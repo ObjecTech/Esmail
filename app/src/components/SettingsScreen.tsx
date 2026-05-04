@@ -1,8 +1,8 @@
-import { Check, ChevronDown, ChevronLeft } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, Trash2 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useMemo, useState } from "react";
 import { categoryLabel, text } from "../language";
-import type { Category, Language, RuleField, SettingsMode, SortRule } from "../types";
+import type { Category, CustomViewDateFilter, CustomViewFilterKey, CustomViewSettings, Language, RuleField, SettingsMode, SortRule } from "../types";
 import { IconButton } from "./IconButton";
 
 interface SettingsScreenProps {
@@ -10,23 +10,48 @@ interface SettingsScreenProps {
   language: Language;
   mode: SettingsMode;
   rules: SortRule[];
+  viewSettings: CustomViewSettings;
   onAddCategory: (category: Category) => void;
   onAddRule: (rule: SortRule) => void;
+  onDeleteRule: (ruleId: string) => void;
+  onViewSettingsChange: (settings: CustomViewSettings) => void;
   onBack: () => void;
 }
 
 const colors = ["#4ab3ff", "#7bd300", "#ffb21a", "#ef4d73", "#7f807e", "#7b6cf6", "#c838d8"];
+const filterKeys = ["unread", "sentToMe", "ccMe", "attachments"] as const;
 
-export function SettingsScreen({ categories, language, mode, rules, onAddCategory, onAddRule, onBack }: SettingsScreenProps) {
-  const [label, setLabel] = useState(language === "zh" ? "学生" : "Student");
-  const [hint, setHint] = useState(language === "zh" ? "课程、导师、学校后缀等邮件" : "Course, tutor, and school-domain emails");
+export function SettingsScreen({
+  categories,
+  language,
+  mode,
+  rules,
+  viewSettings,
+  onAddCategory,
+  onAddRule,
+  onDeleteRule,
+  onViewSettingsChange,
+  onBack
+}: SettingsScreenProps) {
+  const [label, setLabel] = useState(language === "zh" ? "自定义标签" : "Custom Label");
+  const [hint, setHint] = useState(language === "zh" ? "描述哪些邮件属于这个标签" : "Describe which emails belong here");
   const [selectedColor, setSelectedColor] = useState(colors[0]);
   const [field, setField] = useState<RuleField>("domain");
-  const [value, setValue] = useState("student.edu");
-  const [targetCategoryId, setTargetCategoryId] = useState(categories[categories.length - 1]?.id || "important");
-  const [visibleCategoryIds, setVisibleCategoryIds] = useState(() => categories.map((category) => category.id));
+  const [value, setValue] = useState("SCC");
+  const [targetCategoryId, setTargetCategoryId] = useState(categories[0]?.id || "others");
+  const [dateMenuOpen, setDateMenuOpen] = useState(false);
 
   const sortedCategories = useMemo(() => [...categories].sort((a, b) => a.order - b.order), [categories]);
+  const dateOptions = useMemo(
+    () => [
+      { id: "all" as const, label: language === "zh" ? "所有日期" : "All dates" },
+      { id: "today" as const, label: language === "zh" ? "今天" : "Today" },
+      { id: "sevenDays" as const, label: language === "zh" ? "最近 7 天" : "Last 7 days" },
+      { id: "thirtyDays" as const, label: language === "zh" ? "最近 30 天" : "Last 30 days" }
+    ],
+    [language]
+  );
+  const selectedDateLabel = dateOptions.find((option) => option.id === viewSettings.dateFilter)?.label || dateOptions[0].label;
 
   function createCategory() {
     const cleanLabel = label.trim();
@@ -45,9 +70,21 @@ export function SettingsScreen({ categories, language, mode, rules, onAddCategor
   }
 
   function toggleVisible(categoryId: string) {
-    setVisibleCategoryIds((current) =>
-      current.includes(categoryId) ? current.filter((id) => id !== categoryId) : [...current, categoryId]
-    );
+    const visibleCategoryIds = viewSettings.visibleCategoryIds.includes(categoryId)
+      ? viewSettings.visibleCategoryIds.filter((id) => id !== categoryId)
+      : [...viewSettings.visibleCategoryIds, categoryId];
+    onViewSettingsChange({ ...viewSettings, visibleCategoryIds });
+  }
+
+  function toggleFilter(filter: CustomViewFilterKey) {
+    const activeFilters = viewSettings.activeFilters.includes(filter)
+      ? viewSettings.activeFilters.filter((item) => item !== filter)
+      : [...viewSettings.activeFilters, filter];
+    onViewSettingsChange({ ...viewSettings, activeFilters });
+  }
+
+  function changeDateFilter(dateFilter: CustomViewDateFilter) {
+    onViewSettingsChange({ ...viewSettings, dateFilter });
   }
 
   function createRule() {
@@ -154,10 +191,10 @@ export function SettingsScreen({ categories, language, mode, rules, onAddCategor
               type="button"
             >
               <span
-                className={`square-check ${visibleCategoryIds.includes(category.id) ? "square-check-on" : ""}`}
+                className={`square-check ${viewSettings.visibleCategoryIds.includes(category.id) ? "square-check-on" : ""}`}
                 style={{ "--chip-color": category.color } as CSSProperties}
               >
-                {visibleCategoryIds.includes(category.id) ? <Check size={20} strokeWidth={3} /> : null}
+                {viewSettings.visibleCategoryIds.includes(category.id) ? <Check size={20} strokeWidth={3} /> : null}
               </span>
               <span>{categoryLabel(category, language)}</span>
             </button>
@@ -167,13 +204,49 @@ export function SettingsScreen({ categories, language, mode, rules, onAddCategor
 
       <div className="custom-section-label">{text(language, "filters")}</div>
       <div className="custom-card filter-card">
-        <div className="filter-row">{text(language, "unread")}</div>
-        <div className="filter-row">{text(language, "sentToMe")}</div>
-        <div className="filter-row">{text(language, "ccMe")}</div>
-        <div className="filter-row">{text(language, "attachments")}</div>
-        <div className="filter-row">
-          <span>{text(language, "date")}</span>
-          <strong>{language === "zh" ? "所有日期" : "All dates"} <ChevronDown size={19} /></strong>
+        {filterKeys.map((filter) => {
+          const active = viewSettings.activeFilters.includes(filter);
+          return (
+            <button
+              aria-pressed={active}
+              className={`filter-row filter-toggle ${active ? "filter-row-active" : ""}`}
+              key={filter}
+              onClick={() => toggleFilter(filter)}
+              type="button"
+            >
+              <span>{text(language, filter)}</span>
+              <span className="filter-indicator">{active ? <Check size={20} strokeWidth={3} /> : null}</span>
+            </button>
+          );
+        })}
+        <div className="date-filter-wrap">
+          <button
+            aria-expanded={dateMenuOpen}
+            className={`filter-row date-filter-row ${viewSettings.dateFilter !== "all" ? "filter-row-active" : ""}`}
+            onClick={() => setDateMenuOpen((open) => !open)}
+            type="button"
+          >
+            <span>{text(language, "date")}</span>
+            <strong>{selectedDateLabel} <ChevronDown size={19} /></strong>
+          </button>
+          {dateMenuOpen ? (
+            <div className="date-filter-menu">
+              {dateOptions.map((option) => (
+                <button
+                  className={`date-filter-option ${viewSettings.dateFilter === option.id ? "date-filter-option-active" : ""}`}
+                  key={option.id}
+                  onClick={() => {
+                    changeDateFilter(option.id);
+                    setDateMenuOpen(false);
+                  }}
+                  type="button"
+                >
+                  <span>{option.label}</span>
+                  {viewSettings.dateFilter === option.id ? <Check size={18} strokeWidth={3} /> : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -201,7 +274,7 @@ export function SettingsScreen({ categories, language, mode, rules, onAddCategor
         <input
           className="rule-value-input"
           onChange={(event) => setValue(event.target.value)}
-          placeholder="例如 student.edu 或 Tutor"
+          placeholder={language === "zh" ? "例如 SCC 或 Career Centre" : "e.g. SCC or Career Centre"}
           value={value}
         />
         <button className="primary-wide" onClick={createRule} type="button">
@@ -214,10 +287,23 @@ export function SettingsScreen({ categories, language, mode, rules, onAddCategor
         <div className="rules-list">
           {rules.map((rule) => {
             const category = categories.find((item) => item.id === rule.categoryId);
+            const categoryName = category ? categoryLabel(category, language) : rule.categoryId;
+            const ruleLabel = `${fieldLabel(rule.field, language)} ${language === "zh" ? "包含" : "contains"} “${rule.value}”`;
             return (
               <div className="rule-row" key={rule.id}>
-                <span>{fieldLabel(rule.field, language)} {language === "zh" ? "包含" : "contains"} “{rule.value}”</span>
-                <strong>{category ? categoryLabel(category, language) : rule.categoryId}</strong>
+                <span>{ruleLabel}</span>
+                <div className="rule-row-actions">
+                  <strong>{categoryName}</strong>
+                  <button
+                    aria-label={`${language === "zh" ? "删除规则" : "Delete rule"}：${ruleLabel} ${categoryName}`}
+                    className="rule-delete-button"
+                    onClick={() => onDeleteRule(rule.id)}
+                    title={language === "zh" ? "删除规则" : "Delete rule"}
+                    type="button"
+                  >
+                    <Trash2 size={17} strokeWidth={2.5} />
+                  </button>
+                </div>
               </div>
             );
           })}

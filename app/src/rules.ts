@@ -25,6 +25,16 @@ function matchesRule(email: Email, rule: SortRule) {
   return normalize(valueForField(email, rule.field)).includes(normalize(rule.value));
 }
 
+export function emailCategoryIds(email: Email) {
+  const ids = [
+    ...(email.categoryIds || []),
+    ...(email.fallbackCategoryIds || []),
+    email.categoryId,
+    email.fallbackCategoryId
+  ].filter(Boolean) as string[];
+  return [...new Set(ids)];
+}
+
 export function applySortRules(
   emails: Email[],
   categories: Category[],
@@ -33,11 +43,18 @@ export function applySortRules(
   const activeRules = rules.filter((rule) => rule.enabled && categoryExists(categories, rule.categoryId));
 
   return emails.map((email) => {
-    const matchedRule = activeRules.find((rule) => matchesRule(email, rule));
+    const matchedRules = activeRules.filter((rule) => matchesRule(email, rule));
+    const categoryIds = [...new Set([
+      ...matchedRules.map((rule) => rule.categoryId),
+      ...emailCategoryIds(email)
+    ].filter((categoryId) => categoryExists(categories, categoryId)))];
+    const primaryCategoryId = categoryIds[0] || email.fallbackCategoryId;
     return {
       ...email,
-      categoryId: matchedRule?.categoryId ?? email.fallbackCategoryId,
-      matchedRuleId: matchedRule?.id
+      categoryIds,
+      categoryId: primaryCategoryId,
+      matchedRuleId: matchedRules[0]?.id,
+      matchedRuleIds: matchedRules.map((rule) => rule.id)
     };
   });
 }

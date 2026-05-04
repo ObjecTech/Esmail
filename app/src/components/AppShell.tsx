@@ -1,6 +1,6 @@
 import { PenLine } from "lucide-react";
 import type { ReactNode } from "react";
-import type { Language, Screen } from "../types";
+import type { Language, Screen, Theme } from "../types";
 import { BottomNav } from "./BottomNav";
 
 interface AppShellProps {
@@ -10,6 +10,7 @@ interface AppShellProps {
   children: ReactNode;
   hideNavigation?: boolean;
   language: Language;
+  theme: Theme;
   onCompose: () => void;
   onNavigate: (screen: Screen) => void;
 }
@@ -21,11 +22,12 @@ export function AppShell({
   children,
   hideNavigation,
   language,
+  theme,
   onCompose,
   onNavigate
 }: AppShellProps) {
   return (
-    <div className="phone-stage">
+    <div className="phone-stage" data-theme={theme}>
       <div className="phone-shell">
         <div className="screen-scroll">{children}</div>
         {!hideNavigation ? (

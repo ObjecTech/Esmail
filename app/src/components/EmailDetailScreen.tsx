@@ -30,6 +30,10 @@ export function EmailDetailScreen({
   const [moreOpen, setMoreOpen] = useState(false);
   const summary = email.summaryBullets.slice(0, 3);
   const isZh = language === "zh";
+  const images = email.images ?? [];
+  const hasHtmlBody = Boolean(email.htmlBody?.trim());
+  const hasPlainBody = Boolean(email.body?.trim());
+  const hasImages = Boolean(images.length);
 
   function runAction(action: Parameters<EmailDetailScreenProps["onAction"]>[1]) {
     setMoreOpen(false);
@@ -136,9 +140,24 @@ export function EmailDetailScreen({
         </button>
       ) : null}
 
-      <div className="email-body">
-        <p>{email.body}</p>
-      </div>
+      <article className="email-body">
+        <h2>{isZh ? "完整正文" : "Full message"}</h2>
+        {hasHtmlBody ? (
+          <div className="email-html-body" dangerouslySetInnerHTML={{ __html: email.htmlBody || "" }} />
+        ) : hasPlainBody ? (
+          <p>{email.body}</p>
+        ) : (
+          <p className="email-body-empty">{email.fullLoaded ? (isZh ? "这封邮件没有可显示的正文。" : "No readable body was found for this message.") : (isZh ? "正在读取完整正文..." : "Loading full message body...")}</p>
+        )}
+        {hasImages ? (
+          <div className="email-image-list">
+            {images.map((image) => (
+              <img alt={image.filename || "Email attachment"} key={`${image.contentId || image.filename}-${image.dataUrl.slice(0, 32)}`} src={image.dataUrl} />
+            ))}
+          </div>
+        ) : null}
+      </article>
+
     </section>
   );
 }

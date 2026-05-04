@@ -110,10 +110,15 @@ export function text(language: Language, key: TextKey) {
 }
 
 export function categoryLabel(category: Category, language: Language) {
-  if (category.id === "important") return text(language, "important");
-  if (category.id === "thinking") return text(language, "thinking");
-  if (category.id === "activity") return text(language, "activity");
-  if (category.id === "marketing") return text(language, "marketing");
-  if (category.id === "student") return text(language, "student");
+  if (!category.isDefault) return category.label;
+  const labels: Record<string, Record<Language, string>> = {
+    course: { zh: "课程", en: "Course" },
+    deadline: { zh: "截止日期", en: "Deadline" },
+    "university-notice": { zh: "大学通知", en: "University Notice" },
+    "career-internship": { zh: "求职 / 实习", en: "Career / Internship" },
+    "system-notification": { zh: "系统通知", en: "System Notification" },
+    others: { zh: "其他", en: "Others" }
+  };
+  if (labels[category.id]) return labels[category.id][language];
   return category.label;
 }

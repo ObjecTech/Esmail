@@ -5,8 +5,17 @@ export type RuleField = "domain" | "sender" | "subject" | "content";
 export type RuleOperator = "contains";
 export type Screen = "inbox" | "todos" | "ai" | "settings";
 export type Language = "zh" | "en";
+export type Theme = "classic" | "white";
 export type SettingsMode = "customView" | "smartLabel";
 export type MailboxView = "inbox" | "all" | "starred" | "snoozed" | "drafts" | "sent" | "archive" | "spam" | "trash";
+export type CustomViewFilterKey = "unread" | "sentToMe" | "ccMe" | "attachments";
+export type CustomViewDateFilter = "all" | "today" | "sevenDays" | "thirtyDays";
+
+export interface CustomViewSettings {
+  visibleCategoryIds: string[];
+  activeFilters: CustomViewFilterKey[];
+  dateFilter: CustomViewDateFilter;
+}
 
 export interface AiAction {
   mode: AiActionMode;
@@ -20,18 +29,38 @@ export interface Email {
   subject: string;
   snippet: string;
   body: string;
+  htmlBody?: string;
+  to?: string;
+  cc?: string;
   dateLabel: string;
   fallbackCategoryId: string;
+  fallbackCategoryIds?: string[];
   categoryId?: string;
+  categoryIds?: string[];
   priority: Priority;
   summaryBullets: string[];
+  images?: EmailImage[];
   aiAction?: AiAction;
   matchedRuleId?: string;
+  matchedRuleIds?: string[];
   starred?: boolean;
   archived?: boolean;
   deleted?: boolean;
+  draft?: boolean;
+  sent?: boolean;
+  spam?: boolean;
   snoozed?: boolean;
   unread?: boolean;
+  hasAttachments?: boolean;
+  fullLoaded?: boolean;
+}
+
+export interface EmailImage {
+  filename: string;
+  mimeType: string;
+  contentId?: string;
+  disposition?: string;
+  dataUrl: string;
 }
 
 export interface Todo {
@@ -66,6 +95,32 @@ export interface AssistantReply {
   lines: string[];
 }
 
+export interface EmailCitation {
+  email: Email;
+  score: number;
+  matchLabel: string;
+  excerpt: string;
+  summaryBullets: string[];
+  categoryIds: string[];
+}
+
+export interface AiChatMessage {
+  id: string;
+  role: "assistant" | "user";
+  content: string;
+  reply?: AssistantReply;
+  citations?: EmailCitation[];
+  showMoreSearch?: boolean;
+  createdAt: number;
+}
+
+export interface AiConversation {
+  id: string;
+  title: string;
+  messages: AiChatMessage[];
+  updatedAt: number;
+}
+
 export interface Draft {
   subject: string;
   body: string;
@@ -84,4 +139,5 @@ export interface InboxAnalysis {
   summaryBullets: string[];
   todoTitle?: string;
   categoryId?: string;
+  categoryIds?: string[];
 }

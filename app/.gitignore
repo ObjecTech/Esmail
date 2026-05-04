@@ -1,8 +1,8 @@
 .env
 .env.*
-!.env.example
 .data/
 client_secret_*.json
 node_modules/
 dist/
 .playwright-cli/
+.vercel

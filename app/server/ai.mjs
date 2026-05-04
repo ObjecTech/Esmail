@@ -1,3 +1,5 @@
+import { CATEGORY_DEFINITIONS, classifyEmailText, normalizeCategoryIds, primaryCategoryId, priorityForCategories } from "./classification.mjs";
+
 const DEFAULT_SYSTEM_PROMPT = [
   "You are Esmail's email assistant.",
   "Keep answers short, practical, and important.",
@@ -22,13 +24,18 @@ export function summarizeAnalysisPrompt(emails) {
     from: `${email.senderName} <${email.senderEmail}>`,
     subject: email.subject,
     snippet: email.snippet,
-    categoryId: email.categoryId || email.fallbackCategoryId
+    body: (email.body || "").slice(0, 1200),
+    categoryIds: email.categoryIds || email.fallbackCategoryIds || [email.categoryId || email.fallbackCategoryId].filter(Boolean),
+    priority: email.priority,
+    dateLabel: email.dateLabel
   }));
 
   return [
-    "请分析这些邮件，并只返回 JSON 数组。",
-    "每项格式：{\"id\":\"邮件ID\",\"summaryBullets\":[\"最多 3 条，简短重要\"],\"todoTitle\":\"如需行动则一句话，否则空字符串\",\"categoryId\":\"important/thinking/activity/marketing/student\"}",
-    "summaryBullets 最多 3 条，todoTitle 必须简短。",
+    "请分析这些邮件，并只返回 JSON 数组，不要返回 Markdown。",
+    `可用标签只能来自：${CATEGORY_DEFINITIONS.map((category) => `${category.id}=${category.label}`).join(", ")}`,
+    "同一封邮件可以有多个标签。每项格式：{\"id\":\"邮件ID\",\"summaryBullets\":[\"最多 3 条，简短具体\"],\"todoTitle\":\"如需行动则一句话，否则空字符串\",\"categoryIds\":[\"course\",\"deadline\"]}",
+    "分类原则：邮件标题开头是三个英文字母加三个数字（例如 DTS206、ENT208）用 course；邮件包含截止、due、deadline、submit、closing date、expires、截止、到期、最晚、之前等期限表达用 deadline；发件人包含 museum、SA-Office、SCC、MITSNotice、lifelonglearning、XIPU Insititution、LIB、liverpool、UniversityCommunications、AOA、studyabroad 用 university-notice；发件人包含 XJTLU External Mentor 或 XJTLU Career Centre 用 career-internship；邮件包含 Do not reply 用 system-notification；不属于任何其他标签时用 others。",
+    "摘要必须基于邮件正文和主题，不要编造不存在的截止时间、发件人或行动。",
     JSON.stringify(compactEmails, null, 2)
   ].join("\n");
 }
@@ -41,7 +48,7 @@ export function buildInboxContext(emails = [], language = "zh") {
     subject: email.subject,
     snippet: email.snippet,
     body: (email.body || "").slice(0, 420),
-    categoryId: email.categoryId || email.fallbackCategoryId,
+    categoryIds: email.categoryIds || email.fallbackCategoryIds || [email.categoryId || email.fallbackCategoryId].filter(Boolean),
     priority: email.priority,
     unread: email.unread !== false,
     starred: Boolean(email.starred)
@@ -83,19 +90,32 @@ export function parseJsonish(text, fallback) {
   }
 }
 
-export async function callChatAnywhere({ apiKey, baseUrl, model, messages, temperature }) {
+export async function callChatAnywhere({ apiKey, baseUrl, model, messages, temperature, timeoutMs = 8000 }) {
   if (!apiKey) {
     throw new Error("CHATANYWHERE_API_KEY is missing");
   }
 
-  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(buildChatPayload({ model, messages, temperature }))
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let response;
+  try {
+    response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      signal: controller.signal,
+      body: JSON.stringify(buildChatPayload({ model, messages, temperature }))
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`AI request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -141,7 +161,8 @@ function relevantEmails(prompt, emails = []) {
     return emails.filter((email) => {
       if (email.deleted || email.archived) return false;
       if (options.today && !["今天", "today"].includes(String(email.dateLabel).toLowerCase())) return false;
-      if (options.important && (email.priority !== "high" && (email.categoryId || email.fallbackCategoryId) !== "important")) return false;
+      const categoryIds = email.categoryIds || email.fallbackCategoryIds || [email.categoryId || email.fallbackCategoryId].filter(Boolean);
+      if (options.important && (email.priority !== "high" && !categoryIds.includes("deadline"))) return false;
       if (options.unread && email.unread === false) return false;
       return true;
     });
@@ -204,6 +225,17 @@ export function fallbackAnalysis(emails) {
     id: email.id,
     summaryBullets: email.summaryBullets?.length ? email.summaryBullets.slice(0, 3) : [email.snippet || email.subject],
     todoTitle: email.priority === "high" ? `处理：${email.subject}` : "",
-    categoryId: email.categoryId || email.fallbackCategoryId
+    categoryIds: normalizeCategoryIds(email.categoryIds || email.fallbackCategoryIds).length
+      ? normalizeCategoryIds(email.categoryIds || email.fallbackCategoryIds)
+      : classifyEmailText({
+          from: `${email.senderName} ${email.senderEmail}`,
+          subject: email.subject,
+          snippet: email.snippet,
+          body: email.body
+        })
+  })).map((item, index) => ({
+    ...item,
+    categoryId: primaryCategoryId(item.categoryIds),
+    priority: priorityForCategories(item.categoryIds, `${emails[index]?.subject || ""} ${emails[index]?.snippet || ""} ${emails[index]?.body || ""}`)
   }));
 }

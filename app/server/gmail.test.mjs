@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRawEmail, mapGmailMessageToEmail, shortDateLabel } from "./gmail.mjs";
+import { buildRawEmail, inlineImagesInHtml, mapGmailMessageToEmail, shortDateLabel } from "./gmail.mjs";
 
 describe("gmail helpers", () => {
   it("maps Gmail API messages into Esmail email rows", () => {
@@ -27,7 +27,7 @@ describe("gmail helpers", () => {
     expect(email.senderEmail).toBe("tutor@student.edu");
     expect(email.subject).toBe("ENT208 feedback");
     expect(email.body).toContain("validation section");
-    expect(email.fallbackCategoryId).toBe("important");
+    expect(email.fallbackCategoryIds).toEqual(["course", "deadline"]);
   });
 
   it("builds a base64url raw email for Gmail send", () => {
@@ -51,5 +51,60 @@ describe("gmail helpers", () => {
 
     expect(label).toContain("4");
     expect(label).toContain("24");
+  });
+
+  it("decodes non-utf8 Gmail message bodies using the part charset", () => {
+    const message = {
+      id: "gmail-gbk",
+      internalDate: String(Date.UTC(2026, 3, 24)),
+      payload: {
+        headers: [
+          { name: "From", value: "Teacher <teacher@example.edu>" },
+          { name: "Subject", value: "Course notice" }
+        ],
+        parts: [
+          {
+            mimeType: "text/plain",
+            headers: [{ name: "Content-Type", value: "text/plain; charset=gb2312" }],
+            body: {
+              data: Buffer.from([0xb2, 0xe2, 0xca, 0xd4]).toString("base64url")
+            }
+          }
+        ]
+      },
+      snippet: ""
+    };
+
+    expect(mapGmailMessageToEmail(message).body).toBe("测试");
+  });
+
+  it("preserves Gmail HTML bodies and can inline content-id images", () => {
+    const message = {
+      id: "gmail-html",
+      internalDate: String(Date.UTC(2026, 3, 24)),
+      payload: {
+        headers: [
+          { name: "From", value: "Teacher <teacher@example.edu>" },
+          { name: "Subject", value: "HTML notice" }
+        ],
+        parts: [
+          {
+            mimeType: "text/html",
+            headers: [{ name: "Content-Type", value: "text/html; charset=utf-8" }],
+            body: {
+              data: Buffer.from("<div><p>Course image</p><img src=\"cid:hero\"></div>", "utf8").toString("base64url")
+            }
+          }
+        ]
+      },
+      snippet: ""
+    };
+
+    const email = mapGmailMessageToEmail(message);
+    const html = inlineImagesInHtml(email.htmlBody, [{ contentId: "hero", dataUrl: "data:image/png;base64,abc" }]);
+
+    expect(email.body).toContain("Course image");
+    expect(email.htmlBody).toContain("cid:hero");
+    expect(html).toContain("data:image/png;base64,abc");
   });
 });

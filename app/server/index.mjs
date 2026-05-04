@@ -1,11 +1,13 @@
 import { createServer } from "node:http";
+import { fileURLToPath } from "node:url";
 import { URL } from "node:url";
 import { buildChatPayload, buildContextualChatPrompt, callChatAnywhere, fallbackAnalysis, fallbackChatReply, fallbackDraft, parseJsonish, shouldAnswerFromInboxContext, soundsLikeMissingMailboxAccess, summarizeAnalysisPrompt } from "./ai.mjs";
+import { normalizeCategoryIds, primaryCategoryId } from "./classification.mjs";
 import { config } from "./env.mjs";
-import { buildRawEmail, mapGmailMessageToEmail } from "./gmail.mjs";
+import { buildRawEmail, extractGmailImages, inlineImagesInHtml, mapGmailMessageToEmail } from "./gmail.mjs";
 import { configureFetchProxy } from "./proxy.mjs";
-import { listQqMessages, sendQqEmail, verifyQqMailbox } from "./qqMail.mjs";
-import { clearActiveProvider, clearQqSession, clearToken, readActiveProvider, readQqSession, readToken, writeActiveProvider, writeQqSession, writeToken } from "./tokenStore.mjs";
+import { getQqMessage, listQqMessages, sendQqEmail, verifyQqMailbox } from "./qqMail.mjs";
+import { clearActiveProvider, clearQqSession, clearToken, readActiveProvider, readQqSession, readToken, withTokenStoreContext, writeActiveProvider, writeQqSession, writeToken } from "./tokenStore.mjs";
 
 const cfg = config();
 const fetchProxy = configureFetchProxy();
@@ -54,6 +56,11 @@ function authErrorCode(error) {
 }
 
 async function readJson(req) {
+  if (req.body !== undefined) {
+    if (typeof req.body === "string") return req.body ? JSON.parse(req.body) : {};
+    return req.body || {};
+  }
+
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
   const text = Buffer.concat(chunks).toString("utf8");
@@ -212,6 +219,15 @@ async function currentSession() {
   return { authenticated: false };
 }
 
+async function attachGmailImages(message, email) {
+  email.images = await extractGmailImages(message, async (attachmentId) => {
+    const attachment = await googleFetch(`/messages/${message.id}/attachments/${attachmentId}`);
+    return attachment.data || "";
+  });
+  email.htmlBody = inlineImagesInHtml(email.htmlBody || "", email.images);
+  return email;
+}
+
 async function listMessages() {
   if (readActiveProvider() === "qq") {
     const qqSession = readQqSession();
@@ -223,12 +239,27 @@ async function listMessages() {
     return listQqMessages(qqSession);
   }
 
-  const list = await googleFetch("/messages?maxResults=50&q=newer_than:90d");
+  const list = await googleFetch("/messages?maxResults=200&q=newer_than:365d");
   const ids = list.messages || [];
   const messages = await Promise.all(
-    ids.map((message) => googleFetch(`/messages/${message.id}?format=full`))
+    ids.map((message) => googleFetch(`/messages/${message.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`))
   );
   return messages.map(mapGmailMessageToEmail);
+}
+
+async function getMessageDetail(messageId) {
+  if (readActiveProvider() === "qq") {
+    const qqSession = readQqSession();
+    if (!qqSession?.email) {
+      const error = new Error("QQ Mail is not connected");
+      error.status = 401;
+      throw error;
+    }
+    return getQqMessage(qqSession, messageId);
+  }
+
+  const message = await googleFetch(`/messages/${encodeURIComponent(messageId)}?format=full`);
+  return attachGmailImages(message, mapGmailMessageToEmail(message));
 }
 
 async function aiChat(prompt, language, emails = []) {
@@ -285,13 +316,27 @@ async function aiAnalyze(emails) {
       messages: [{ role: "user", content: summarizeAnalysisPrompt(emails) }],
       temperature: 0.2
     });
-    return parseJsonish(text, fallbackAnalysis(emails));
+    return normalizeAnalysis(parseJsonish(text, fallbackAnalysis(emails)), emails);
   } catch {
     return fallbackAnalysis(emails);
   }
 }
 
-const server = createServer(async (req, res) => {
+function normalizeAnalysis(analysis, emails) {
+  const fallback = fallbackAnalysis(emails);
+  if (!Array.isArray(analysis)) return fallback;
+  return analysis.map((item) => {
+    const categoryIds = normalizeCategoryIds(item.categoryIds || item.categoryId);
+    return {
+      ...item,
+      categoryIds: categoryIds.length ? categoryIds : normalizeCategoryIds(fallback.find((fallbackItem) => fallbackItem.id === item.id)?.categoryIds),
+      categoryId: primaryCategoryId(categoryIds.length ? categoryIds : fallback.find((fallbackItem) => fallbackItem.id === item.id)?.categoryIds),
+      summaryBullets: Array.isArray(item.summaryBullets) ? item.summaryBullets.slice(0, 3).map(String) : []
+    };
+  });
+}
+
+export async function handleApi(req, res) {
   const url = new URL(req.url || "/", `http://${req.headers.host || "127.0.0.1"}`);
 
   if (req.method === "OPTIONS") {
@@ -318,17 +363,17 @@ const server = createServer(async (req, res) => {
       const settings = {
         email: String(body.email || "").trim(),
         authCode: String(body.authCode || "").trim(),
-        imapHost: String(body.imapHost || "imap.qq.com").trim(),
-        imapPort: Number(body.imapPort || 993),
-        smtpHost: String(body.smtpHost || "smtp.qq.com").trim(),
-        smtpPort: Number(body.smtpPort || 465)
+        imapHost: "imap.qq.com",
+        imapPort: 993,
+        smtpHost: "smtp.qq.com",
+        smtpPort: 465
       };
       if (!settings.email || !settings.authCode) {
         const error = new Error("请填写 QQ 邮箱和授权码。");
         error.status = 400;
         throw error;
       }
-      await verifyQqMailbox(settings);
+      await verifyQqMailbox(settings, { verifySmtp: false });
       writeQqSession({
         ...settings,
         provider: "qq",
@@ -360,6 +405,11 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === "/api/gmail/messages") {
       return sendJson(res, 200, { emails: await listMessages() });
+    }
+
+    const detailMatch = url.pathname.match(/^\/api\/gmail\/messages\/([^/]+)$/);
+    if (detailMatch && req.method === "GET") {
+      return sendJson(res, 200, { email: await getMessageDetail(decodeURIComponent(detailMatch[1])) });
     }
 
     if (url.pathname === "/api/gmail/send" && req.method === "POST") {
@@ -428,10 +478,14 @@ const server = createServer(async (req, res) => {
     }
     sendJson(res, error.status || 500, { error: error.message || "Server error" });
   }
-});
+}
 
-server.listen(cfg.apiPort, "127.0.0.1", () => {
-  console.log(`Esmail API ready at http://127.0.0.1:${cfg.apiPort}`);
-  if (fetchProxy) console.log(`Google API requests use proxy: ${fetchProxy}`);
-  console.log(`Chat payload model: ${buildChatPayload({ model: cfg.aiModel, messages: [] }).model}`);
-});
+if (!process.env.VERCEL && process.argv[1] === fileURLToPath(import.meta.url)) {
+  const server = createServer((req, res) => withTokenStoreContext(req, res, () => handleApi(req, res)));
+
+  server.listen(cfg.apiPort, "127.0.0.1", () => {
+    console.log(`Esmail API ready at http://127.0.0.1:${cfg.apiPort}`);
+    if (fetchProxy) console.log(`Google API requests use proxy: ${fetchProxy}`);
+    console.log(`Chat payload model: ${buildChatPayload({ model: cfg.aiModel, messages: [] }).model}`);
+  });
+}

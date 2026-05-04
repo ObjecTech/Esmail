@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSmtpMessage, decodeMimeBody, decodeMimeWords } from "./qqMail.mjs";
+import { buildSmtpMessage, decodeMimeBody, decodeMimeContent, decodeMimeWords, extractMimeImages } from "./qqMail.mjs";
 
 describe("QQ mail helpers", () => {
   it("decodes UTF-8 MIME words from IMAP headers", () => {
@@ -37,9 +37,32 @@ describe("QQ mail helpers", () => {
     ].join("\r\n");
 
     expect(decodeMimeBody(raw)).toContain("Dear Zhanyuan Ning");
-    expect(decodeMimeBody(raw)).toContain("AY2025-26 Semester 2 Module Questionnaire");
+    expect(decodeMimeBody(raw)).toContain("AY2025-26\nSemester 2 Module Questionnaire");
     expect(decodeMimeBody(raw)).not.toContain("BODY[TEXT]");
     expect(decodeMimeBody(raw)).not.toContain("Content-Transfer-Encoding");
+  });
+
+  it("preserves line breaks in decoded QQ plain text bodies", () => {
+    const raw = [
+      "Content-Type: text/plain; charset=utf-8",
+      "Content-Transfer-Encoding: quoted-printable",
+      "",
+      "Dear Zhanyuan Ning,=0D=0A=0D=0A",
+      "Congratulations! Your paper has been accepted.=0D=0A",
+      "Paper ID: 278=0D=0A=0D=0A",
+      "Best regards,=0D=0A",
+      "ICCCN2026 TPC"
+    ].join("\r\n");
+
+    expect(decodeMimeBody(raw)).toBe([
+      "Dear Zhanyuan Ning,",
+      "",
+      "Congratulations! Your paper has been accepted.",
+      "Paper ID: 278",
+      "",
+      "Best regards,",
+      "ICCCN2026 TPC"
+    ].join("\n"));
   });
 
   it("decodes base64 QQ message bodies", () => {
@@ -64,5 +87,117 @@ describe("QQ mail helpers", () => {
 
     expect(decodeMimeBody(raw)).toContain("ICCCN2026 notification for paper 278");
     expect(decodeMimeBody(raw)).not.toContain("BODY[TEXT]");
+  });
+
+  it("extracts inline images from QQ MIME messages", () => {
+    const png = Buffer.from("fake-png", "utf8").toString("base64");
+    const raw = [
+      "* 1 FETCH (BODY[]<0> {500}",
+      "Content-Type: multipart/related; boundary=\"b1\"",
+      "",
+      "--b1",
+      "Content-Type: text/html; charset=utf-8",
+      "Content-Transfer-Encoding: quoted-printable",
+      "",
+      "<p>Hello</p><img src=3D\"cid:logo\">",
+      "--b1",
+      "Content-Type: image/png; name=\"logo.png\"",
+      "Content-Transfer-Encoding: base64",
+      "Content-ID: <logo>",
+      "Content-Disposition: inline; filename=\"logo.png\"",
+      "",
+      png,
+      "--b1--",
+      ")",
+      "B1 OK FETCH completed"
+    ].join("\r\n");
+
+    const images = extractMimeImages(raw);
+
+    expect(images).toHaveLength(1);
+    expect(images[0].filename).toBe("logo.png");
+    expect(images[0].dataUrl).toContain("data:image/png;base64,");
+  });
+
+  it("preserves nested HTML bodies and finds related inline images", () => {
+    const png = Buffer.from("nested-png", "utf8").toString("base64");
+    const raw = [
+      "Content-Type: multipart/related; boundary=\"outer\"",
+      "",
+      "--outer",
+      "Content-Type: multipart/alternative; boundary=\"inner\"",
+      "",
+      "--inner",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      "Plain fallback",
+      "--inner",
+      "Content-Type: text/html; charset=utf-8",
+      "Content-Transfer-Encoding: quoted-printable",
+      "",
+      "<div><p>=E6=AD=A3=E6=96=87</p><img src=3D\"cid:logo\"></div>",
+      "--inner--",
+      "--outer",
+      "Content-Type: image/png; name=\"logo.png\"",
+      "Content-Transfer-Encoding: base64",
+      "Content-ID: <logo>",
+      "",
+      png,
+      "--outer--"
+    ].join("\r\n");
+
+    const content = decodeMimeContent(raw);
+    const images = extractMimeImages(raw);
+
+    expect(content.text).toContain("Plain fallback");
+    expect(content.htmlBody).toContain("正文");
+    expect(content.htmlBody).toContain("cid:logo");
+    expect(images).toHaveLength(1);
+    expect(images[0].contentId).toBe("logo");
+  });
+
+  it("does not render image-only MIME parts as garbled text", () => {
+    const png = Buffer.from("\x89PNG\r\n\x1a\nposter-bytes", "binary").toString("base64");
+    const raw = [
+      "Content-Type: image/png; name=\"poster.png\"",
+      "Content-Transfer-Encoding: base64",
+      "Content-Disposition: inline; filename=\"poster.png\"",
+      "",
+      png
+    ].join("\r\n");
+
+    const content = decodeMimeContent(raw);
+    const images = extractMimeImages(raw);
+
+    expect(content.text).toBe("");
+    expect(content.htmlBody).toBe("");
+    expect(images).toHaveLength(1);
+    expect(images[0].mimeType).toBe("image/png");
+  });
+
+  it("parses headerless multipart bodies without leaking binary parts into text", () => {
+    const png = Buffer.from("poster-bytes", "utf8").toString("base64");
+    const raw = [
+      "--mixed",
+      "Content-Type: image/png; name=\"poster.png\"",
+      "Content-Transfer-Encoding: base64",
+      "Content-Disposition: inline; filename=\"poster.png\"",
+      "",
+      png,
+      "--mixed",
+      "Content-Type: text/html; charset=utf-8",
+      "Content-Transfer-Encoding: quoted-printable",
+      "",
+      "<div><p>=E6=AD=A3=E6=96=87</p></div>",
+      "--mixed--"
+    ].join("\r\n");
+
+    const content = decodeMimeContent(raw);
+    const images = extractMimeImages(raw);
+
+    expect(content.text).toBe("正文");
+    expect(content.htmlBody).toContain("正文");
+    expect(content.text).not.toContain("poster-bytes");
+    expect(images).toHaveLength(1);
   });
 });

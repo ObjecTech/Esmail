@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { analyzeInbox, askAssistant, createDraft, getGmailMessages, getSession, loginQqMailbox, logoutGoogle, sendEmail, updateGmailMessage } from "./api";
+import { analyzeInbox, askAssistant, createDraft, getEmailMessage, getGmailMessages, getSession, loginQqMailbox, logoutGoogle, sendEmail, updateGmailMessage } from "./api";
 import { AppShell } from "./components/AppShell";
 import { AiScreen } from "./components/AiScreen";
 import { ComposeScreen } from "./components/ComposeScreen";
@@ -9,57 +9,74 @@ import { LoginScreen } from "./components/LoginScreen";
 import { SettingsScreen } from "./components/SettingsScreen";
 import { SideMenu } from "./components/SideMenu";
 import { TodosScreen } from "./components/TodosScreen";
-import { defaultCategories, initialRules, mockEmails } from "./mockData";
-import { applySortRules } from "./rules";
+import { applyCustomViewFilters, defaultCustomViewSettings, visibleCategoriesForView } from "./customView";
+import { defaultCategories, initialRules } from "./mockData";
+import { computeMailboxCounts, computeUnreadInboxCount, mailboxItemsForView } from "./mailboxCounts";
+import { applySortRules, emailCategoryIds } from "./rules";
 import { activeTodos, completeTodo, createInitialTodos, createSuggestedTodo, createTodoFromEmail } from "./todos";
-import type { AccountSession, Category, Draft, Email, InboxAnalysis, Language, MailboxView, Screen, SettingsMode, SortRule, Todo } from "./types";
+import type { AccountSession, Category, CustomViewSettings, Draft, Email, InboxAnalysis, Language, MailboxView, Screen, SettingsMode, SortRule, Theme, Todo } from "./types";
+
+const themeCycle: Theme[] = ["classic", "white"];
+
+function nextTheme(theme: Theme) {
+  return themeCycle[(themeCycle.indexOf(theme) + 1) % themeCycle.length];
+}
+
+function initialTheme(): Theme {
+  const stored = window.localStorage.getItem("esmail.theme");
+  return themeCycle.includes(stored as Theme) ? (stored as Theme) : "classic";
+}
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>("inbox");
   const [mailboxView, setMailboxView] = useState<MailboxView>("inbox");
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
-  const [activeCategoryId, setActiveCategoryId] = useState("important");
+  const [activeCategoryId, setActiveCategoryId] = useState("all");
   const [categories, setCategories] = useState<Category[]>(defaultCategories);
+  const [customViewSettings, setCustomViewSettings] = useState<CustomViewSettings>(() => defaultCustomViewSettings(defaultCategories));
   const [rules, setRules] = useState<SortRule[]>(initialRules);
-  const [todos, setTodos] = useState<Todo[]>(() => createInitialTodos(mockEmails));
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isTodoEditing, setIsTodoEditing] = useState(false);
   const [language, setLanguage] = useState<Language>("zh");
+  const [theme, setTheme] = useState<Theme>(initialTheme);
   const [settingsMode, setSettingsMode] = useState<SettingsMode>("customView");
   const [session, setSession] = useState<AccountSession>({ authenticated: false });
   const [sessionStatus, setSessionStatus] = useState<"loading" | "ready">("loading");
   const [showLogin, setShowLogin] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [localEmails, setLocalEmails] = useState<Email[]>(mockEmails);
+  const [localEmails, setLocalEmails] = useState<Email[]>([]);
   const [gmailEmails, setGmailEmails] = useState<Email[]>([]);
   const [sentEmails, setSentEmails] = useState<Email[]>([]);
   const [gmailStatus, setGmailStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [gmailError, setGmailError] = useState("");
   const [detailNotice, setDetailNotice] = useState("");
 
-  const sourceEmails = gmailEmails.length ? gmailEmails : localEmails;
-  const mailboxSourceEmails = useMemo(() => {
-    if (mailboxView === "sent") return sentEmails;
-    if (mailboxView === "all") return sourceEmails.filter((email) => !email.deleted);
-    if (mailboxView === "starred") return sourceEmails.filter((email) => email.starred && !email.deleted);
-    if (mailboxView === "snoozed") return sourceEmails.filter((email) => email.snoozed && !email.deleted);
-    if (mailboxView === "trash") return sourceEmails.filter((email) => email.deleted);
-    if (mailboxView === "archive") return sourceEmails.filter((email) => email.archived && !email.deleted);
-    if (mailboxView === "spam" || mailboxView === "drafts") return [];
-    return sourceEmails.filter((email) => !email.deleted && !email.archived);
-  }, [mailboxView, sentEmails, sourceEmails]);
-  const inboxCount = sourceEmails.filter((email) => !email.deleted && !email.archived).length;
+  const sourceEmails = session.authenticated ? gmailEmails : localEmails;
+  const mailboxCounts = useMemo(() => computeMailboxCounts(sourceEmails, sentEmails), [sentEmails, sourceEmails]);
+  const mailboxSourceEmails = useMemo(() => mailboxItemsForView(mailboxView, sourceEmails, sentEmails), [mailboxView, sentEmails, sourceEmails]);
+  const inboxCount = useMemo(() => computeUnreadInboxCount(sourceEmails), [sourceEmails]);
   const showCategoryTabs = mailboxView === "inbox";
+  const visibleCategories = useMemo(
+    () => visibleCategoriesForView(categories, customViewSettings.visibleCategoryIds),
+    [categories, customViewSettings.visibleCategoryIds]
+  );
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    const inboxEmails = sourceEmails.filter((email) => !email.deleted && !email.archived);
+    const inboxEmails = mailboxItemsForView("inbox", sourceEmails, sentEmails);
     for (const email of applySortRules(inboxEmails, categories, rules)) {
-      counts[email.categoryId] = (counts[email.categoryId] || 0) + 1;
+      for (const categoryId of emailCategoryIds(email)) {
+        counts[categoryId] = (counts[categoryId] || 0) + 1;
+      }
     }
     return counts;
-  }, [categories, rules, sourceEmails]);
-  const sortedEmails = useMemo(() => applySortRules(mailboxSourceEmails, categories, rules), [mailboxSourceEmails, categories, rules]);
+  }, [categories, rules, sentEmails, sourceEmails]);
+  const sortedEmails = useMemo(() => {
+    const classified = applySortRules(mailboxSourceEmails, categories, rules);
+    if (mailboxView !== "inbox") return classified;
+    return applyCustomViewFilters(classified, customViewSettings, session.email || "");
+  }, [mailboxSourceEmails, categories, customViewSettings, mailboxView, rules, session.email]);
   const emails = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return sortedEmails;
@@ -72,7 +89,9 @@ export default function App() {
         email.body,
         email.dateLabel,
         email.categoryId,
-        email.fallbackCategoryId
+        email.fallbackCategoryId,
+        ...(email.categoryIds || []),
+        ...(email.fallbackCategoryIds || [])
       ]
         .filter(Boolean)
         .join(" ")
@@ -86,6 +105,16 @@ export default function App() {
     () => applySortRules(sourceEmails, categories, rules).find((email) => email.id === selectedEmailId) || null,
     [categories, rules, selectedEmailId, sourceEmails]
   );
+
+  useEffect(() => {
+    if (activeCategoryId !== "all" && !customViewSettings.visibleCategoryIds.includes(activeCategoryId)) {
+      setActiveCategoryId("all");
+    }
+  }, [activeCategoryId, customViewSettings.visibleCategoryIds]);
+
+  useEffect(() => {
+    window.localStorage.setItem("esmail.theme", theme);
+  }, [theme]);
 
   function authErrorMessage(code: string | null, detail: string | null) {
     if (code === "google_network_timeout") {
@@ -105,7 +134,10 @@ export default function App() {
       if (!result) return email;
       return {
         ...email,
-        fallbackCategoryId: result.categoryId || email.fallbackCategoryId,
+        fallbackCategoryIds: result.categoryIds?.length ? result.categoryIds : email.fallbackCategoryIds,
+        fallbackCategoryId: result.categoryId || result.categoryIds?.[0] || email.fallbackCategoryId,
+        categoryIds: result.categoryIds?.length ? result.categoryIds : email.categoryIds,
+        categoryId: result.categoryId || result.categoryIds?.[0] || email.categoryId,
         summaryBullets: result.summaryBullets?.length ? result.summaryBullets.slice(0, 3) : email.summaryBullets,
         aiAction: result.todoTitle
           ? {
@@ -129,9 +161,9 @@ export default function App() {
       setGmailStatus("loaded");
     } catch (error) {
       setGmailStatus("error");
-      setGmailError(error instanceof Error ? error.message : "Gmail 加载失败");
+      setGmailError(error instanceof Error ? error.message : language === "zh" ? "邮箱加载失败" : "Mailbox load failed");
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -169,11 +201,19 @@ export default function App() {
 
   function addCategory(category: Category) {
     setCategories((current) => [...current, category]);
+    setCustomViewSettings((current) => ({
+      ...current,
+      visibleCategoryIds: [...current.visibleCategoryIds, category.id]
+    }));
     setActiveCategoryId(category.id);
   }
 
   function addRule(rule: SortRule) {
     setRules((current) => [...current, rule]);
+  }
+
+  function deleteRule(ruleId: string) {
+    setRules((current) => current.filter((rule) => rule.id !== ruleId));
   }
 
   function addSuggestedTodo(email: Email) {
@@ -191,9 +231,37 @@ export default function App() {
     setTodos((current) => completeTodo(current, todoId));
   }
 
+  function mergeEmailDetail(email: Email, detail: Email) {
+    return {
+      ...email,
+      ...detail,
+      categoryIds: detail.categoryIds?.length ? detail.categoryIds : email.categoryIds,
+      fallbackCategoryIds: detail.fallbackCategoryIds?.length ? detail.fallbackCategoryIds : email.fallbackCategoryIds,
+      categoryId: detail.categoryId || email.categoryId,
+      fallbackCategoryId: detail.fallbackCategoryId || email.fallbackCategoryId,
+      summaryBullets: detail.summaryBullets?.length ? detail.summaryBullets : email.summaryBullets,
+      fullLoaded: true
+    };
+  }
+
   function handleOpenEmail(email: Email) {
     setDetailNotice("");
     setSelectedEmailId(email.id);
+    const shouldMarkRead = email.unread !== false;
+    if (shouldMarkRead) {
+      patchEmail(email.id, { unread: false });
+      void syncGmailAction(email, "markRead");
+    }
+    if (email.id.startsWith("sent-") || email.fullLoaded) return;
+    setDetailNotice(language === "zh" ? "正在加载完整邮件内容..." : "Loading full message...");
+    getEmailMessage(email.id)
+      .then((detail) => {
+        patchEmail(email.id, { ...mergeEmailDetail(email, detail), unread: false });
+        setDetailNotice("");
+      })
+      .catch((error) => {
+        setDetailNotice(error instanceof Error ? error.message : language === "zh" ? "完整邮件加载失败" : "Failed to load full message");
+      });
   }
 
   function handleBackToInbox() {
@@ -255,8 +323,8 @@ export default function App() {
     await logoutGoogle();
     setSession({ authenticated: false });
     setGmailEmails([]);
-    setLocalEmails(mockEmails);
-    setTodos(createInitialTodos(mockEmails));
+    setLocalEmails([]);
+    setTodos([]);
     setGmailStatus("idle");
   }
 
@@ -284,14 +352,18 @@ export default function App() {
       id: `sent-${Date.now()}`,
       senderName: language === "zh" ? "我" : "Me",
       senderEmail: session.email || "me",
+      to: payload.to,
       subject: payload.subject,
       snippet: payload.body.replace(/\s+/g, " ").slice(0, 120),
       body: payload.body,
       dateLabel: language === "zh" ? "刚刚" : "Now",
-      fallbackCategoryId: "important",
-      categoryId: "important",
+      fallbackCategoryId: "others",
+      fallbackCategoryIds: ["others"],
+      categoryId: "others",
+      categoryIds: ["others"],
       priority: "medium",
-      summaryBullets: [payload.body.replace(/\s+/g, " ").slice(0, 90)]
+      summaryBullets: [payload.body.replace(/\s+/g, " ").slice(0, 90)],
+      sent: true
     };
     setSentEmails((current) => [sentEmail, ...current]);
     setMailboxView("sent");
@@ -356,7 +428,7 @@ export default function App() {
     }
 
     if (action === "markNotImportant") {
-      patchEmail(email.id, { fallbackCategoryId: "thinking", categoryId: "thinking", priority: "medium" });
+      patchEmail(email.id, { fallbackCategoryId: "others", fallbackCategoryIds: ["others"], categoryId: "others", categoryIds: ["others"], priority: "medium" });
       setDetailNotice(language === "zh" ? "已标记为不重要" : "Marked not important");
       await syncGmailAction(email, "markNotImportant");
       return;
@@ -378,7 +450,7 @@ export default function App() {
       const domain = email.senderEmail.split("@")[1] || email.senderEmail;
       addRule({
         id: `rule-${email.id}-${Date.now()}`,
-        categoryId: email.categoryId || email.fallbackCategoryId,
+        categoryId: email.categoryId || email.categoryIds?.[0] || email.fallbackCategoryId,
         field: "domain",
         operator: "contains",
         value: domain,
@@ -411,6 +483,7 @@ export default function App() {
       inboxCount={inboxCount}
       hideNavigation={isComposeOpen || Boolean(selectedEmail) || activeScreen === "settings" || isTodoEditing}
       language={language}
+      theme={theme}
       onCompose={() => setIsComposeOpen(true)}
       onNavigate={setActiveScreen}
     >
@@ -420,7 +493,9 @@ export default function App() {
         inboxCount={inboxCount}
         isOpen={isMenuOpen}
         language={language}
+        mailboxCounts={mailboxCounts}
         mailboxView={mailboxView}
+        theme={theme}
         onCategorySelect={(categoryId) => {
           setActiveCategoryId(categoryId);
           setMailboxView("inbox");
@@ -440,6 +515,7 @@ export default function App() {
           setActiveScreen("settings");
         }}
         onToggleLanguage={() => setLanguage((current) => (current === "zh" ? "en" : "zh"))}
+        onToggleTheme={() => setTheme(nextTheme)}
       />
       {isComposeOpen ? (
         <ComposeScreen
@@ -465,7 +541,7 @@ export default function App() {
       ) : activeScreen === "inbox" ? (
         <InboxScreen
           activeCategoryId={activeCategoryId}
-          categories={categories}
+          categories={visibleCategories}
           emails={emails}
           gmailError={gmailError}
           gmailStatus={gmailStatus}
@@ -474,7 +550,13 @@ export default function App() {
           searchQuery={searchQuery}
           session={session}
           onAddAccount={() => setShowLogin(true)}
-          onConnectGoogle={connectGoogle}
+          onConnectGoogle={() => {
+            if (session.provider === "qq") {
+              void loadGmail();
+              return;
+            }
+            connectGoogle();
+          }}
           onLogoutAccount={handleLogout}
           onCategoryChange={setActiveCategoryId}
           onOpenEmail={handleOpenEmail}
@@ -501,7 +583,7 @@ export default function App() {
           todos={todos}
         />
       ) : activeScreen === "ai" ? (
-        <AiScreen language={language} onAskAssistant={handleAskAssistant} />
+        <AiScreen emails={allReadableEmails} language={language} onAskAssistant={handleAskAssistant} onOpenEmail={handleOpenEmail} />
       ) : (
         <SettingsScreen
           categories={categories}
@@ -510,7 +592,10 @@ export default function App() {
           onAddCategory={addCategory}
           onAddRule={addRule}
           onBack={() => setActiveScreen("inbox")}
+          onDeleteRule={deleteRule}
+          onViewSettingsChange={setCustomViewSettings}
           rules={rules}
+          viewSettings={customViewSettings}
         />
       )}
     </AppShell>

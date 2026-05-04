@@ -1,4 +1,4 @@
-import { ArrowRight, Chrome, KeyRound, Languages, Loader2, Mail, Server, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, ChevronDown, Chrome, CircleHelp, KeyRound, Languages, Loader2, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import type { FormEvent } from "react";
 import { useState } from "react";
 import type { Language } from "../types";
@@ -25,20 +25,24 @@ interface LoginScreenProps {
 export function LoginScreen({ error, language, loading, onGoogleLogin, onQqLogin, onToggleLanguage }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [authCode, setAuthCode] = useState("");
-  const [imapHost, setImapHost] = useState("imap.qq.com");
-  const [imapPort, setImapPort] = useState(993);
-  const [smtpHost, setSmtpHost] = useState("smtp.qq.com");
-  const [smtpPort, setSmtpPort] = useState(465);
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showImapForm, setShowImapForm] = useState(false);
   const isZh = language === "zh";
 
   async function submitQq(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
-    setStatus(isZh ? "正在验证 IMAP 和 SMTP..." : "Verifying IMAP and SMTP...");
+    setStatus(isZh ? "正在验证 QQ 邮箱授权..." : "Verifying QQ Mail authorization...");
     try {
-      await onQqLogin({ email, authCode, imapHost, imapPort, smtpHost, smtpPort });
+      await onQqLogin({
+        email,
+        authCode,
+        imapHost: "imap.qq.com",
+        imapPort: 993,
+        smtpHost: "smtp.qq.com",
+        smtpPort: 465
+      });
       setStatus(isZh ? "登录成功，正在进入邮箱..." : "Signed in. Opening mailbox...");
     } catch (loginError) {
       setStatus(loginError instanceof Error ? loginError.message : isZh ? "QQ 邮箱登录失败" : "QQ Mail sign-in failed");
@@ -62,8 +66,6 @@ export function LoginScreen({ error, language, loading, onGoogleLogin, onQqLogin
 
         <div className="login-hero">
           <p className="login-kicker">Esmail</p>
-          <h1>{isZh ? "先登录邮箱，再进入智能收件箱" : "Sign in before opening your intelligent inbox"}</h1>
-          <p>{isZh ? "支持 Google OAuth，也支持 QQ 邮箱授权码登录 IMAP / SMTP。" : "Use Google OAuth or connect QQ Mail with IMAP / SMTP credentials."}</p>
         </div>
 
         <div className="login-methods">
@@ -73,57 +75,63 @@ export function LoginScreen({ error, language, loading, onGoogleLogin, onQqLogin
             <ArrowRight size={21} />
           </button>
 
-          <form className="qq-login-form" onSubmit={(event) => void submitQq(event)}>
-            <div className="login-section-title">
-              <ShieldCheck size={22} />
-              <span>{isZh ? "QQ 邮箱 IMAP / SMTP" : "QQ Mail IMAP / SMTP"}</span>
-            </div>
-            <label>
-              <span>{isZh ? "QQ 邮箱" : "QQ Mail address"}</span>
-              <input
-                autoComplete="email"
-                inputMode="email"
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="name@qq.com"
-                required
-                type="email"
-                value={email}
-              />
-            </label>
-            <label>
-              <span>{isZh ? "邮箱授权码" : "Mail authorization code"}</span>
-              <input
-                autoComplete="current-password"
-                onChange={(event) => setAuthCode(event.target.value)}
-                placeholder={isZh ? "不是 QQ 密码" : "Not your QQ password"}
-                required
-                type="password"
-                value={authCode}
-              />
-            </label>
-            <div className="mail-server-grid">
+          <button
+            aria-expanded={showImapForm}
+            className="imap-login-button"
+            disabled={loading || isSubmitting}
+            onClick={() => setShowImapForm((isVisible) => !isVisible)}
+            type="button"
+          >
+            <ShieldCheck size={23} />
+            <span>{isZh ? "使用 QQ 邮箱登录" : "Continue with QQ Mail"}</span>
+            <ChevronDown className={showImapForm ? "chevron-open" : undefined} size={21} />
+          </button>
+
+          {showImapForm ? (
+            <form className="qq-login-form" onSubmit={(event) => void submitQq(event)}>
               <label>
-                <span><Server size={15} /> IMAP</span>
-                <input onChange={(event) => setImapHost(event.target.value)} required value={imapHost} />
+                <span>{isZh ? "QQ 邮箱" : "QQ Mail address"}</span>
+                <input
+                  autoComplete="email"
+                  inputMode="email"
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="name@qq.com"
+                  required
+                  type="email"
+                  value={email}
+                />
               </label>
               <label>
-                <span>{isZh ? "端口" : "Port"}</span>
-                <input onChange={(event) => setImapPort(Number(event.target.value))} required type="number" value={imapPort} />
+                <span className="auth-code-label">
+                  {isZh ? "邮箱授权码" : "Mail authorization code"}
+                  <button
+                    aria-label={isZh ? "邮箱授权码说明" : "Mail authorization code help"}
+                    className="auth-code-help"
+                    type="button"
+                  >
+                    <CircleHelp size={15} />
+                    <span className="auth-code-tip">
+                      {isZh
+                        ? "这不是 QQ 密码。请在 QQ 邮箱中进入：设置 -> 账号与安全 -> 安全设置 -> 生成授权码。"
+                        : "This is not your QQ password. In QQ Mail, go to: Settings -> Account & Security -> Security Settings -> Generate authorization code."}
+                    </span>
+                  </button>
+                </span>
+                <input
+                  autoComplete="current-password"
+                  onChange={(event) => setAuthCode(event.target.value)}
+                  placeholder={isZh ? "不是 QQ 密码" : "Not your QQ password"}
+                  required
+                  type="password"
+                  value={authCode}
+                />
               </label>
-              <label>
-                <span><Server size={15} /> SMTP</span>
-                <input onChange={(event) => setSmtpHost(event.target.value)} required value={smtpHost} />
-              </label>
-              <label>
-                <span>{isZh ? "端口" : "Port"}</span>
-                <input onChange={(event) => setSmtpPort(Number(event.target.value))} required type="number" value={smtpPort} />
-              </label>
-            </div>
-            <button className="qq-submit-button" disabled={loading || isSubmitting} type="submit">
-              {isSubmitting ? <Loader2 className="spin" size={20} /> : <KeyRound size={20} />}
-              <span>{isZh ? "验证并进入 Esmail" : "Verify and enter Esmail"}</span>
-            </button>
-          </form>
+              <button className="qq-submit-button" disabled={loading || isSubmitting} type="submit">
+                {isSubmitting ? <Loader2 className="spin" size={20} /> : <KeyRound size={20} />}
+                <span>{isZh ? "验证并进入 Esmail" : "Verify and enter Esmail"}</span>
+              </button>
+            </form>
+          ) : null}
         </div>
 
         {(status || error || loading) ? (

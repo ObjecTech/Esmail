@@ -1,6 +1,7 @@
 import { Check, Hexagon, Menu, Plus, Search, SlidersHorizontal, UserRound } from "lucide-react";
 import { useState } from "react";
 import { categoryLabel, text } from "../language";
+import { emailCategoryIds } from "../rules";
 import type { AccountSession, Category, Email, Language, Todo } from "../types";
 import { EmailRow } from "./EmailRow";
 import { IconButton } from "./IconButton";
@@ -50,8 +51,17 @@ export function InboxScreen({
 }: InboxScreenProps) {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const isSearching = searchQuery.trim().length > 0;
-  const activeEmails = showCategories && !isSearching ? emails.filter((email) => email.categoryId === activeCategoryId) : emails;
+  const activeEmails = showCategories && !isSearching && activeCategoryId !== "all"
+    ? emails.filter((email) => emailCategoryIds(email).includes(activeCategoryId))
+    : emails;
   const accountInitial = (session.name || session.email || "G").slice(0, 2);
+  const isQq = session.provider === "qq";
+  const providerName = isQq ? (language === "zh" ? "QQ 邮箱" : "QQ Mail") : "Gmail";
+  const connectLabel = isQq
+    ? (language === "zh" ? "同步 QQ 邮箱" : "Sync QQ Mail")
+    : (language === "zh" ? "连接 Google 邮箱" : "Connect Google Mail");
+  const loadingLabel = language === "zh" ? `正在同步 ${providerName}` : `Syncing ${providerName}`;
+  const errorLabel = language === "zh" ? `${providerName} 同步失败` : `${providerName} sync failed`;
 
   return (
     <section className="screen-section inbox-screen">
@@ -113,6 +123,15 @@ export function InboxScreen({
 
       {showCategories ? (
         <div className="category-tabs" role="tablist" aria-label="邮件分类">
+          <button
+            className={`category-tab ${activeCategoryId === "all" ? "category-tab-active" : ""}`}
+            onClick={() => onCategoryChange("all")}
+            role="tab"
+            style={{ "--tab-color": "#52b7ff" } as React.CSSProperties}
+            type="button"
+          >
+            {language === "zh" ? "所有邮件" : "All Mail"}
+          </button>
           {categories.map((category) => (
             <button
               className={`category-tab ${category.id === activeCategoryId ? "category-tab-active" : ""}`}
@@ -133,29 +152,31 @@ export function InboxScreen({
       <div className="mail-date-group">{language === "zh" ? "今天" : "Today"}</div>
       {gmailStatus === "idle" ? (
         <button className="gmail-connect-banner" onClick={onConnectGoogle} type="button">
-          <strong>{language === "zh" ? "连接 Google 邮箱" : "Connect Google Mail"}</strong>
-          <span>{language === "zh" ? "登录后读取真实邮件，并让 AI 自动总结和生成待办。" : "Load real Gmail messages and let AI summarize them."}</span>
+          <strong>{connectLabel}</strong>
+          <span>{language === "zh" ? "登录后读取真实邮件，并让 AI 自动总结和生成待办。" : "Load real mail and let AI summarize it."}</span>
         </button>
       ) : null}
       {gmailStatus === "loading" ? (
         <div className="gmail-connect-banner passive-banner">
-          <strong>{language === "zh" ? "正在同步 Gmail" : "Syncing Gmail"}</strong>
+          <strong>{loadingLabel}</strong>
           <span>{language === "zh" ? "Esmail 正在读取最近邮件并分析待办。" : "Esmail is loading recent messages and todos."}</span>
         </div>
       ) : null}
       {gmailStatus === "error" ? (
         <button className="gmail-connect-banner error-banner" onClick={onConnectGoogle} type="button">
-          <strong>{language === "zh" ? "Gmail 未连接" : "Gmail not connected"}</strong>
-          <span>{gmailError || (language === "zh" ? "点击重新连接。" : "Click to reconnect.")}</span>
+          <strong>{errorLabel}</strong>
+          <span>{gmailError || (language === "zh" ? "点击重新同步。" : "Click to sync again.")}</span>
         </button>
       ) : null}
       <div className="email-list">
         {activeEmails.map((email) => {
-          const category = categories.find((item) => item.id === email.categoryId);
+          const rowCategories = emailCategoryIds(email)
+            .map((categoryId) => categories.find((item) => item.id === categoryId))
+            .filter(Boolean) as Category[];
           const todo = todos.find((item) => item.emailId === email.id && item.status === "active");
           return (
             <EmailRow
-              category={category}
+              categories={rowCategories}
               email={email}
               key={email.id}
               language={language}

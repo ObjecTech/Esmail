@@ -20,9 +20,17 @@ export function loadEnv(rootDir = process.cwd()) {
 }
 
 export function readGoogleClient(rootDir = process.cwd()) {
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    return {
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uris: process.env.GOOGLE_REDIRECT_URI ? [process.env.GOOGLE_REDIRECT_URI] : []
+    };
+  }
+
   const fileName = readdirSync(rootDir).find((file) => /^client_secret_.*\.json$/.test(file));
   if (!fileName) {
-    throw new Error("Missing Google OAuth client_secret_*.json in Esmail root");
+    throw new Error("Missing Google OAuth client_secret_*.json in Esmail root or GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET env vars");
   }
 
   const raw = JSON.parse(readFileSync(join(rootDir, fileName), "utf8"));

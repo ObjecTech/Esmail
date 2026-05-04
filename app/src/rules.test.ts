@@ -3,8 +3,9 @@ import { applySortRules } from "./rules";
 import type { Category, Email, SortRule } from "./types";
 
 const categories: Category[] = [
-  { id: "important", label: "重要", isDefault: true, color: "#52b7ff", order: 0 },
-  { id: "student", label: "学生", isDefault: false, color: "#8cc8ff", order: 4 }
+  { id: "course", label: "Course", isDefault: true, color: "#3f8cff", order: 0 },
+  { id: "deadline", label: "Deadline", isDefault: true, color: "#d9972f", order: 1 },
+  { id: "others", label: "Others", isDefault: true, color: "#8f95a3", order: 2 }
 ];
 
 const email: Email = {
@@ -15,7 +16,8 @@ const email: Email = {
   snippet: "Please revise before Friday",
   body: "Please revise before Friday.",
   dateLabel: "今天",
-  fallbackCategoryId: "important",
+  fallbackCategoryId: "deadline",
+  fallbackCategoryIds: ["deadline"],
   priority: "high",
   summaryBullets: ["需要周五前修订。"],
   aiAction: {
@@ -29,7 +31,7 @@ describe("applySortRules", () => {
     const rules: SortRule[] = [
       {
         id: "rule-1",
-        categoryId: "student",
+        categoryId: "course",
         field: "domain",
         operator: "contains",
         value: "student.edu",
@@ -39,7 +41,8 @@ describe("applySortRules", () => {
 
     const [classified] = applySortRules([email], categories, rules);
 
-    expect(classified.categoryId).toBe("student");
+    expect(classified.categoryId).toBe("course");
+    expect(classified.categoryIds).toEqual(expect.arrayContaining(["course", "deadline"]));
     expect(classified.matchedRuleId).toBe("rule-1");
   });
 
@@ -47,7 +50,7 @@ describe("applySortRules", () => {
     const rules: SortRule[] = [
       {
         id: "rule-1",
-        categoryId: "student",
+        categoryId: "course",
         field: "domain",
         operator: "contains",
         value: "student.edu",
@@ -57,7 +60,7 @@ describe("applySortRules", () => {
 
     const [classified] = applySortRules([email], categories, rules);
 
-    expect(classified.categoryId).toBe("important");
+    expect(classified.categoryId).toBe("deadline");
     expect(classified.matchedRuleId).toBeUndefined();
   });
 });
