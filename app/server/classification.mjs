@@ -48,7 +48,7 @@ const DEADLINE_PATTERNS = [
   /\bddl\b/i
 ];
 
-const COURSE_SUBJECT_PREFIX_PATTERN = /^[A-Z]{3}\d{3}\b/i;
+const COURSE_CODE_PATTERN = /\b[A-Z]{3}\d{3}[A-Z]{0,3}\b/i;
 
 function normalize(value = "") {
   return String(value)
@@ -82,7 +82,7 @@ export function classifyEmailText({ from = "", subject = "", snippet = "", body 
   const text = `${from} ${subject} ${snippet} ${body}`;
   const matched = [];
 
-  if (COURSE_SUBJECT_PREFIX_PATTERN.test(String(subject).trim())) matched.push("course");
+  if (COURSE_CODE_PATTERN.test(text)) matched.push("course");
   if (DEADLINE_PATTERNS.some((pattern) => pattern.test(text))) matched.push("deadline");
   if (containsAny(from, UNIVERSITY_SENDER_TERMS)) matched.push("university-notice");
   if (containsAny(from, CAREER_SENDER_TERMS)) matched.push("career-internship");

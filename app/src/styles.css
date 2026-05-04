@@ -1525,6 +1525,240 @@ button {
   background: #eef3f8;
 }
 
+.phone-stage[data-theme="white"] .center-title-header h1,
+.phone-stage[data-theme="white"] .ai-hero h1,
+.phone-stage[data-theme="white"] .ai-history-header h1 {
+  color: #111318;
+}
+
+.phone-stage[data-theme="white"] .center-title-header p,
+.phone-stage[data-theme="white"] .ai-hero p,
+.phone-stage[data-theme="white"] .ai-history-empty,
+.phone-stage[data-theme="white"] .compose-fields span,
+.phone-stage[data-theme="white"] .compose-ai p,
+.phone-stage[data-theme="white"] .done-empty,
+.phone-stage[data-theme="white"] .todo-item-main small {
+  color: #6b7280;
+}
+
+.phone-stage[data-theme="white"] .ai-suggestions button {
+  color: #2f3746;
+}
+
+.phone-stage[data-theme="white"] .ai-input-box,
+.phone-stage[data-theme="white"] .compose-ai-input {
+  border-color: #d8e2ee;
+  background: #fff;
+  box-shadow: 0 16px 34px rgba(42, 48, 62, 0.08);
+}
+
+.phone-stage[data-theme="white"] .ai-input-box input,
+.phone-stage[data-theme="white"] .compose-ai-input input,
+.phone-stage[data-theme="white"] .compose-fields input,
+.phone-stage[data-theme="white"] .compose-body {
+  color: #111318;
+}
+
+.phone-stage[data-theme="white"] .ai-input-box input::placeholder,
+.phone-stage[data-theme="white"] .compose-ai-input input::placeholder,
+.phone-stage[data-theme="white"] .compose-body::placeholder {
+  color: #7a8190;
+}
+
+.phone-stage[data-theme="white"] .send-action {
+  background: #e7edf5;
+  color: #147dff;
+}
+
+.phone-stage[data-theme="white"] .send-action svg {
+  color: #147dff;
+}
+
+.phone-stage[data-theme="white"] .compose-ai-input button svg {
+  color: #fff;
+}
+
+.phone-stage[data-theme="white"] .ai-message-assistant,
+.phone-stage[data-theme="white"] .ai-citation-card,
+.phone-stage[data-theme="white"] .ai-history-open,
+.phone-stage[data-theme="white"] .compose-chips button,
+.phone-stage[data-theme="white"] .todo-menu-popover,
+.phone-stage[data-theme="white"] .todo-filter-sheet {
+  border-color: #d8e2ee;
+  background: #fff;
+  color: #111318;
+}
+
+.phone-stage[data-theme="white"] .ai-citation-main h3,
+.phone-stage[data-theme="white"] .ai-citation-expanded blockquote,
+.phone-stage[data-theme="white"] .todo-menu-row,
+.phone-stage[data-theme="white"] .filter-option-row,
+.phone-stage[data-theme="white"] .priority-mark,
+.phone-stage[data-theme="white"] .done-empty h2 {
+  color: #111318;
+}
+
+.phone-stage[data-theme="white"] .ai-message-assistant,
+.phone-stage[data-theme="white"] .ai-citation-main p,
+.phone-stage[data-theme="white"] .ai-citation-card > p,
+.phone-stage[data-theme="white"] .ai-citation-expanded p,
+.phone-stage[data-theme="white"] .ai-message-thinking p {
+  color: #4b5563;
+}
+
+.phone-stage[data-theme="white"] .ai-citation-actions button,
+.phone-stage[data-theme="white"] .ai-more-search {
+  border-color: #d8e2ee;
+  background: #f4f7fb;
+  color: #2563eb;
+}
+
+.phone-stage[data-theme="white"] .ai-citation-expanded {
+  border-top-color: #e1e7f0;
+}
+
+.phone-stage[data-theme="white"] .compose-actions {
+  background: #fff;
+  box-shadow: 0 16px 34px rgba(42, 48, 62, 0.12);
+}
+
+.phone-stage[data-theme="white"] .attachment-menu {
+  border-color: #d8e2ee;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(42, 48, 62, 0.18);
+}
+
+.phone-stage[data-theme="white"] .attachment-menu button {
+  color: #111318;
+}
+
+.phone-stage[data-theme="white"] .attachment-menu button:hover {
+  background: #f1f5f9;
+}
+
+.phone-stage[data-theme="white"] .compose-fields label {
+  border-bottom-color: #d8e2ee;
+}
+
+.phone-stage[data-theme="white"] .signature {
+  color: #606775;
+}
+
+.phone-stage[data-theme="white"] .attachment-chips span {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.phone-stage[data-theme="white"] .todo-item {
+  border: 1px solid #e2e9f2;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(30, 41, 59, 0.05);
+}
+
+.phone-stage[data-theme="white"] .todo-item-main {
+  color: #111318;
+}
+
+.phone-stage[data-theme="white"] .todo-item-completed .todo-item-main span {
+  color: #8a93a3;
+}
+
+.phone-stage[data-theme="white"] .text-pill,
+.phone-stage[data-theme="white"] .todo-edit-bar button {
+  border-color: #d8e2ee;
+  background: #fff;
+  color: #111318;
+  box-shadow: 0 12px 28px rgba(42, 48, 62, 0.1);
+}
+
+.phone-stage[data-theme="white"] .todo-menu-divider {
+  background: #e1e7f0;
+}
+
+.phone-stage[data-theme="white"] .custom-section-label,
+.phone-stage[data-theme="white"] .custom-field-head span,
+.phone-stage[data-theme="white"] .custom-field-head h2,
+.phone-stage[data-theme="white"] .rule-grid label,
+.phone-stage[data-theme="white"] .rule-list-title,
+.phone-stage[data-theme="white"] .smart-form-head span {
+  color: #6b7280;
+}
+
+.phone-stage[data-theme="white"] .custom-card,
+.phone-stage[data-theme="white"] .date-filter-option,
+.phone-stage[data-theme="white"] .smart-label-card,
+.phone-stage[data-theme="white"] .settings-block {
+  border: 1px solid #d8e2ee;
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(42, 48, 62, 0.07);
+}
+
+.phone-stage[data-theme="white"] .category-check,
+.phone-stage[data-theme="white"] .apply-checkbox,
+.phone-stage[data-theme="white"] .filter-row,
+.phone-stage[data-theme="white"] .date-filter-option,
+.phone-stage[data-theme="white"] .rule-row,
+.phone-stage[data-theme="white"] .smart-form-head,
+.phone-stage[data-theme="white"] .settings-block h2 {
+  color: #111318;
+}
+
+.phone-stage[data-theme="white"] .filter-row,
+.phone-stage[data-theme="white"] .rule-row {
+  border-bottom-color: #d8e2ee;
+}
+
+.phone-stage[data-theme="white"] .filter-row strong,
+.phone-stage[data-theme="white"] .custom-field-head p,
+.phone-stage[data-theme="white"] .rule-meta {
+  color: #6b7280;
+}
+
+.phone-stage[data-theme="white"] .rule-row strong {
+  color: #147dff;
+}
+
+.phone-stage[data-theme="white"] .filter-row-active,
+.phone-stage[data-theme="white"] .filter-row-active strong,
+.phone-stage[data-theme="white"] .filter-toggle:hover,
+.phone-stage[data-theme="white"] .date-filter-row:hover {
+  color: #147dff;
+}
+
+.phone-stage[data-theme="white"] .square-check,
+.phone-stage[data-theme="white"] .filter-indicator {
+  background: #edf2f8;
+  color: #111318;
+}
+
+.phone-stage[data-theme="white"] .date-filter-option-active {
+  border-color: #53b7ff;
+  background: #53b7ff;
+  color: #06131c;
+}
+
+.phone-stage[data-theme="white"] .rule-grid select,
+.phone-stage[data-theme="white"] .rule-value-input,
+.phone-stage[data-theme="white"] .inline-form input,
+.phone-stage[data-theme="white"] .smart-label-card input,
+.phone-stage[data-theme="white"] .smart-label-card textarea,
+.phone-stage[data-theme="white"] .smart-label-form input,
+.phone-stage[data-theme="white"] .smart-label-form textarea {
+  border-color: #d8e2ee;
+  background: #fff;
+  color: #111318;
+}
+
+.phone-stage[data-theme="white"] .rule-value-input::placeholder,
+.phone-stage[data-theme="white"] .inline-form input::placeholder,
+.phone-stage[data-theme="white"] .smart-label-card input::placeholder,
+.phone-stage[data-theme="white"] .smart-label-card textarea::placeholder,
+.phone-stage[data-theme="white"] .smart-label-form input::placeholder,
+.phone-stage[data-theme="white"] .smart-label-form textarea::placeholder {
+  color: #8a93a3;
+}
+
 .center-title-header,
 .settings-header {
   display: grid;

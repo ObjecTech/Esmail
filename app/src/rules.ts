@@ -25,6 +25,18 @@ function matchesRule(email: Email, rule: SortRule) {
   return normalize(valueForField(email, rule.field)).includes(normalize(rule.value));
 }
 
+const courseCodePattern = /\b[A-Z]{3}\d{3}[A-Z]{0,3}\b/i;
+
+function automaticCategoryIds(email: Email) {
+  const searchableText = [
+    email.subject,
+    email.snippet,
+    email.body
+  ].join(" ");
+
+  return courseCodePattern.test(searchableText) ? ["course"] : [];
+}
+
 export function emailCategoryIds(email: Email) {
   const ids = [
     ...(email.categoryIds || []),
@@ -46,6 +58,7 @@ export function applySortRules(
     const matchedRules = activeRules.filter((rule) => matchesRule(email, rule));
     const categoryIds = [...new Set([
       ...matchedRules.map((rule) => rule.categoryId),
+      ...automaticCategoryIds(email),
       ...emailCategoryIds(email)
     ].filter((categoryId) => categoryExists(categories, categoryId)))];
     const primaryCategoryId = categoryIds[0] || email.fallbackCategoryId;

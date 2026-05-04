@@ -27,6 +27,38 @@ const email: Email = {
 };
 
 describe("applySortRules", () => {
+  it("automatically classifies subject course codes into the course category", () => {
+    const [classified] = applySortRules([
+      {
+        ...email,
+        subject: "DTS206TC-2526-S2: Final Exam Schedule",
+        snippet: "Final Exam Schedule",
+        body: "The final exam timetable is attached.",
+        fallbackCategoryId: "others",
+        fallbackCategoryIds: ["others"]
+      }
+    ], categories, []);
+
+    expect(classified.categoryId).toBe("course");
+    expect(classified.categoryIds).toEqual(expect.arrayContaining(["course", "others"]));
+  });
+
+  it("automatically classifies body course codes into the course category", () => {
+    const [classified] = applySortRules([
+      {
+        ...email,
+        subject: "Final Exam Schedule",
+        snippet: "Please check the DTS208 timetable.",
+        body: "The DTS208 final exam timetable is attached.",
+        fallbackCategoryId: "others",
+        fallbackCategoryIds: ["others"]
+      }
+    ], categories, []);
+
+    expect(classified.categoryId).toBe("course");
+    expect(classified.categoryIds).toEqual(expect.arrayContaining(["course", "others"]));
+  });
+
   it("classifies emails by sender domain rules", () => {
     const rules: SortRule[] = [
       {
@@ -39,7 +71,14 @@ describe("applySortRules", () => {
       }
     ];
 
-    const [classified] = applySortRules([email], categories, rules);
+    const [classified] = applySortRules([
+      {
+        ...email,
+        subject: "Feedback request",
+        snippet: "Please revise before Friday",
+        body: "Please revise before Friday."
+      }
+    ], categories, rules);
 
     expect(classified.categoryId).toBe("course");
     expect(classified.categoryIds).toEqual(expect.arrayContaining(["course", "deadline"]));
@@ -58,7 +97,14 @@ describe("applySortRules", () => {
       }
     ];
 
-    const [classified] = applySortRules([email], categories, rules);
+    const [classified] = applySortRules([
+      {
+        ...email,
+        subject: "Feedback request",
+        snippet: "Please revise before Friday",
+        body: "Please revise before Friday."
+      }
+    ], categories, rules);
 
     expect(classified.categoryId).toBe("deadline");
     expect(classified.matchedRuleId).toBeUndefined();
