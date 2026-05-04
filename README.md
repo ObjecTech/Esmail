@@ -1,21 +1,21 @@
 # Esmail
 
-Esmail 仓库包含两个部分：
+This repository contains two parts:
 
-- `app/`: Esmail Web App，支持 Gmail / QQ 邮箱登录、邮件列表、AI 摘要、AI 起草、待办和自定义分类。
-- `plugin/`: 浏览器插件版本，保留为独立项目。
+- `app/`: the Esmail web app, with Gmail / QQ Mail sign-in, mailbox views, AI summaries, AI drafting, todos, and custom classification.
+- `plugin/`: the browser extension version, kept as a separate project.
 
-## 线上访问
+## Online App
 
-当前线上 App 地址：
+Current hosted app:
 
 https://esmail-demo.vercel.app
 
-如果刚推送了新代码但线上页面还没更新，通常需要等待 Vercel 自动部署完成。也可以在 Vercel 项目里查看最新 Production Deployment。
+After pushing new code, wait for the Vercel production deployment to finish before checking the hosted app. You can also inspect the latest Production Deployment in the Vercel project dashboard.
 
-## 本地运行 App
+## Run The App Locally
 
-进入 App 目录：
+Enter the app directory:
 
 ```bash
 cd app
@@ -23,80 +23,80 @@ npm install
 cp .env.example .env
 ```
 
-编辑 `app/.env`，至少配置：
+Edit `app/.env`. At minimum, configure:
 
 ```bash
 API_PORT=5175
 FRONTEND_ORIGIN=http://127.0.0.1:5174
-CHATANYWHERE_API_KEY=你的 ChatAnywhere API key
+CHATANYWHERE_API_KEY=your ChatAnywhere API key
 CHATANYWHERE_BASE_URL=https://api.chatanywhere.tech/v1
 AI_MODEL=gpt-5-mini
 ```
 
-Google 登录有两种配置方式，二选一：
+There are two ways to configure Google sign-in. Option 1 is environment variables:
 
 ```bash
-GOOGLE_CLIENT_ID=你的 Google OAuth Client ID
-GOOGLE_CLIENT_SECRET=你的 Google OAuth Client Secret
+GOOGLE_CLIENT_ID=your Google OAuth Client ID
+GOOGLE_CLIENT_SECRET=your Google OAuth Client Secret
 GOOGLE_REDIRECT_URI=http://127.0.0.1:5175/api/auth/google/callback
 ```
 
-或者把 Google Cloud 下载的 `client_secret_*.json` 放到 `app/` 根目录。不要提交 `.env` 或 `client_secret_*.json`。
+Option 2 is to place the Google Cloud `client_secret_*.json` file in the `app/` directory. Do not commit `.env` or `client_secret_*.json`.
 
-Google Cloud Console 里需要把下面地址加入 OAuth Client 的 Authorized redirect URIs：
+In Google Cloud Console, add this local callback URL to the OAuth Client's Authorized redirect URIs:
 
 ```text
 http://127.0.0.1:5175/api/auth/google/callback
 ```
 
-启动本地后端：
+Start the local API server:
 
 ```bash
 npm run dev:api
 ```
 
-另开一个终端启动前端：
+In a second terminal, start the frontend:
 
 ```bash
 npm run dev:lan
 ```
 
-打开：
+Open:
 
 ```text
 http://127.0.0.1:5174
 ```
 
-QQ 邮箱登录不需要提前写服务器环境变量。页面中输入 QQ 邮箱地址和邮箱授权码即可，授权码不是 QQ 密码，需要在 QQ 邮箱设置中生成。
+QQ Mail sign-in does not require server environment variables. On the login page, enter the QQ Mail address and a mail authorization code. The authorization code is not the QQ password; generate it in QQ Mail settings.
 
-## 更新线上链接
+## Deploy Or Update The Online App
 
-本仓库的 App 适合部署到 Vercel。线上部署时，Vercel 项目的 Root Directory 应指向：
+The app is designed to deploy on Vercel. Set the Vercel project's Root Directory to:
 
 ```text
 app
 ```
 
-Vercel 环境变量建议配置：
+Recommended Vercel environment variables:
 
 ```bash
 FRONTEND_ORIGIN=https://esmail-demo.vercel.app
-CHATANYWHERE_API_KEY=你的 ChatAnywhere API key
+CHATANYWHERE_API_KEY=your ChatAnywhere API key
 CHATANYWHERE_BASE_URL=https://api.chatanywhere.tech/v1
 AI_MODEL=gpt-5-mini
-GOOGLE_CLIENT_ID=你的 Google OAuth Client ID
-GOOGLE_CLIENT_SECRET=你的 Google OAuth Client Secret
+GOOGLE_CLIENT_ID=your Google OAuth Client ID
+GOOGLE_CLIENT_SECRET=your Google OAuth Client Secret
 GOOGLE_REDIRECT_URI=https://esmail-demo.vercel.app/api/auth/google/callback
-SESSION_SECRET=一段足够长的随机字符串
+SESSION_SECRET=a long random string
 ```
 
-同时在 Google Cloud Console 的 Authorized redirect URIs 中加入线上回调地址：
+Also add this production callback URL to the Google Cloud Console OAuth Client's Authorized redirect URIs:
 
 ```text
 https://esmail-demo.vercel.app/api/auth/google/callback
 ```
 
-如果 Vercel 已经连接 GitHub 仓库，推送到 `main` 后会自动触发线上部署。如果需要手动部署：
+If Vercel is connected to the GitHub repository, pushing to `main` automatically triggers a production deployment. To deploy manually:
 
 ```bash
 cd app
@@ -105,9 +105,9 @@ npm run build
 npx vercel --prod
 ```
 
-部署完成后，使用 Vercel 输出的 Production URL 访问；如果使用自定义域名，把 `FRONTEND_ORIGIN` 和 `GOOGLE_REDIRECT_URI` 中的域名同步改成自定义域名。
+After deployment, open the Production URL shown by Vercel. If you use a custom domain, update `FRONTEND_ORIGIN` and `GOOGLE_REDIRECT_URI` to use that domain.
 
-## 常用命令
+## Useful Commands
 
 ```bash
 cd app
