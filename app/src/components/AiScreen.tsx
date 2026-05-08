@@ -4,7 +4,7 @@ import { findRelevantEmailCitations, isSearchLikePrompt } from "../ai";
 import type { AiChatMessage, AiConversation, AssistantReply, Email, Language } from "../types";
 import { IconButton } from "./IconButton";
 
-const historyStorageKey = "esmail.ai.history.v1";
+const historyStorageKey = "esmail.ai.history.v2";
 
 const suggestions: Record<Language, string[]> = {
   zh: ["总结今天未读的重要邮件"],
@@ -15,6 +15,7 @@ interface AiScreenProps {
   language: Language;
   emails?: Email[];
   onAskAssistant: (prompt: string) => Promise<AssistantReply>;
+  onPrepareCitations?: (query: string) => Promise<Email[]>;
   onOpenEmail?: (email: Email) => void;
 }
 
@@ -60,7 +61,35 @@ function saveHistory(items: AiConversation[]) {
   localStorage.setItem(historyStorageKey, JSON.stringify(items.slice(0, 30)));
 }
 
-export function AiScreen({ language, emails = [], onAskAssistant, onOpenEmail }: AiScreenProps) {
+function replyNeedsMailboxFallback(reply: AssistantReply) {
+  const text = [reply.title, ...reply.lines].join(" ").toLowerCase();
+  return [
+    "paste the email",
+    "provide the email",
+    "provide the content",
+    "once you provide",
+    "cannot access",
+    "can't access",
+    "do not have access",
+    "need the email text",
+    "无法访问",
+    "不能访问",
+    "无法直接访问",
+    "粘贴邮件",
+    "提供邮件",
+    "提供内容"
+  ].some((phrase) => text.includes(phrase));
+}
+
+function displayReplyForCitations(reply: AssistantReply, hasCitations: boolean, language: Language): AssistantReply {
+  if (!hasCitations || !replyNeedsMailboxFallback(reply)) return reply;
+  return {
+    title: language === "zh" ? "查找到以下关联邮件" : "Found related emails",
+    lines: []
+  };
+}
+
+export function AiScreen({ language, emails = [], onAskAssistant, onPrepareCitations, onOpenEmail }: AiScreenProps) {
   const [prompt, setPrompt] = useState("");
   const localizedSuggestions = useMemo(() => suggestions[language], [language]);
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
@@ -70,6 +99,7 @@ export function AiScreen({ language, emails = [], onAskAssistant, onOpenEmail }:
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [expandedCitationIds, setExpandedCitationIds] = useState<string[]>([]);
   const requestIdRef = useRef(0);
+  const emailById = useMemo(() => new Map(emails.map((email) => [email.id, email])), [emails]);
 
   async function submit(value: string) {
     const nextPrompt = value.trim();
@@ -94,12 +124,16 @@ export function AiScreen({ language, emails = [], onAskAssistant, onOpenEmail }:
       const nextReply = await onAskAssistant(nextPrompt);
       if (requestIdRef.current === requestId) {
         const citationQuery = [nextPrompt, nextReply.title, ...nextReply.lines].join("\n");
-        const citations = findRelevantEmailCitations(citationQuery, emails, language);
+        const citationEmails = onPrepareCitations ? await onPrepareCitations(citationQuery) : emails;
+        if (requestIdRef.current !== requestId) return;
+        const citations = findRelevantEmailCitations(citationQuery, citationEmails, language);
+        const displayReply = displayReplyForCitations(nextReply, citations.length > 0, language);
+        const assistantMessageId = `${conversationId}-assistant-${Date.now()}`;
         const assistantMessage: AiChatMessage = {
-          id: `${conversationId}-assistant-${Date.now()}`,
+          id: assistantMessageId,
           role: "assistant",
-          content: nextReply.title,
-          reply: nextReply,
+          content: displayReply.title,
+          reply: displayReply,
           citations,
           showMoreSearch: citations.length < 3 && isSearchLikePrompt(nextPrompt, language),
           createdAt: Date.now()
@@ -179,7 +213,7 @@ export function AiScreen({ language, emails = [], onAskAssistant, onOpenEmail }:
       <Sparkles size={18} />
       <input
         onChange={(event) => setPrompt(event.target.value)}
-        placeholder={language === "zh" ? "搜索、写作或询问任何内容..." : "Search, write, or ask anything..."}
+        placeholder={language === "zh" ? "搜索或询问邮件内容..." : "Search or ask about mail..."}
         value={prompt}
       />
       <button className="round-input-action send-action" type="submit" aria-label={language === "zh" ? "发送" : "Send"}>
@@ -271,35 +305,35 @@ export function AiScreen({ language, emails = [], onAskAssistant, onOpenEmail }:
                   {message.citations?.length ? (
                     <div className="ai-citation-list">
                       {message.citations.map((citation) => {
+                        const currentEmail = emailById.get(citation.email.id) || citation.email;
+                        const summaryBullets = currentEmail.summaryBullets?.length ? currentEmail.summaryBullets : citation.summaryBullets;
                         const citationId = `${message.id}-${citation.email.id}`;
                         const expanded = expandedCitationIds.includes(citationId);
                         return (
                           <article className="ai-citation-card" key={citation.email.id}>
                             <div className="ai-citation-main">
                               <div>
-                                <h3>{citation.email.subject}</h3>
-                                <p>{citation.email.senderName} · {citation.email.dateLabel}</p>
+                                <h3>{currentEmail.subject}</h3>
+                                <p>{currentEmail.senderName} · {currentEmail.dateLabel}</p>
                               </div>
                               <strong>{citation.matchLabel}</strong>
                             </div>
-                            <p>{citation.excerpt}</p>
                             <div className="ai-citation-actions">
-                              <button onClick={() => onOpenEmail?.(citation.email)} type="button">
+                              <button onClick={() => onOpenEmail?.(currentEmail)} type="button">
                                 {language === "zh" ? "打开邮件" : "Open email"}
                               </button>
                               <button onClick={() => toggleCitation(citationId)} type="button">
-                                {expanded ? (language === "zh" ? "收起片段" : "Collapse snippet") : (language === "zh" ? "展开片段" : "Expand snippet")}
+                                {expanded ? (language === "zh" ? "收起总结" : "Collapse summary") : (language === "zh" ? "展开总结" : "Expand summary")}
                               </button>
                             </div>
                             {expanded ? (
                               <div className="ai-citation-expanded">
-                                <p>{citation.email.senderName} · {citation.email.dateLabel}</p>
+                                <p>{currentEmail.senderName} · {currentEmail.dateLabel}</p>
                                 <ul>
-                                  {citation.summaryBullets.map((line) => (
+                                  {summaryBullets.map((line) => (
                                     <li key={line}>{line}</li>
                                   ))}
                                 </ul>
-                                <blockquote>{citation.excerpt}</blockquote>
                               </div>
                             ) : null}
                           </article>

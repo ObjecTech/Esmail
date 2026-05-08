@@ -32,4 +32,16 @@ describe("EmailRow", () => {
 
     expect(screen.queryByLabelText("未读邮件")).toBeNull();
   });
+
+  it("does not repeat the subject as the snippet when no todo exists", () => {
+    render(<EmailRow email={email({ subject: "Repeated Subject", snippet: "Repeated Subject" })} language="zh" onOpen={vi.fn()} />);
+
+    expect(screen.getAllByText("Repeated Subject")).toHaveLength(1);
+  });
+
+  it("uses the avatar slot as the selected checkmark in selection mode", () => {
+    render(<EmailRow email={email()} isSelected isSelectionMode language="zh" onOpen={vi.fn()} />);
+
+    expect(screen.getByLabelText("已选择邮件")).toBeTruthy();
+  });
 });

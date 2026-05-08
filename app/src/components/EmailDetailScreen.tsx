@@ -8,6 +8,7 @@ interface EmailDetailScreenProps {
   email: Email;
   todo?: Todo;
   isTodoCompleted: boolean;
+  isSummaryGenerating?: boolean;
   language: Language;
   notice: string;
   onAddSuggestedTodo: (email: Email) => void;
@@ -20,6 +21,7 @@ export function EmailDetailScreen({
   email,
   todo,
   isTodoCompleted,
+  isSummaryGenerating = false,
   language,
   notice,
   onAddSuggestedTodo,
@@ -28,7 +30,7 @@ export function EmailDetailScreen({
   onCompleteTodo
 }: EmailDetailScreenProps) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const summary = email.summaryBullets.slice(0, 3);
+  const summary = isSummaryGenerating ? [language === "zh" ? "正在生成总结" : "Generating summary"] : email.summaryBullets.slice(0, 3);
   const isZh = language === "zh";
   const images = email.images ?? [];
   const hasHtmlBody = Boolean(email.htmlBody?.trim());
@@ -53,7 +55,7 @@ export function EmailDetailScreen({
   return (
     <section className="screen-section detail-screen">
       <header className="detail-toolbar">
-        <IconButton label="返回" onClick={onBack}>
+        <IconButton label={isZh ? "返回" : "Back"} onClick={onBack}>
           <ChevronLeft size={30} />
         </IconButton>
         <div className="detail-actions">

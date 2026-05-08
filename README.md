@@ -13,6 +13,12 @@ https://esmail-demo.vercel.app
 
 After pushing new code, wait for the Vercel production deployment to finish before checking the hosted app. You can also inspect the latest Production Deployment in the Vercel project dashboard.
 
+## Poster Guide
+
+The poster guide for the project is included in this repository:
+
+![Poster guide](./Poster%20guide.png)
+
 ## Run The App Locally
 
 Enter the app directory:

@@ -22,7 +22,7 @@ const navItems: Array<{
 
 export function BottomNav({ activeScreen, activeTodoCount, inboxCount, language, onNavigate }: BottomNavProps) {
   return (
-    <nav className="bottom-nav" aria-label="主要导航">
+    <nav className="bottom-nav" aria-label={language === "zh" ? "主要导航" : "Primary navigation"}>
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = activeScreen === item.id;

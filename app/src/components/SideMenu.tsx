@@ -64,18 +64,18 @@ export function SideMenu({
     { view: "trash", label: language === "zh" ? "回收站" : "Trash", icon: Trash2, count: mailboxCounts.trash }
   ];
   const themeLabels: Record<Theme, string> = {
-    classic: language === "zh" ? "经典深蓝" : "Classic",
+    morandi: "Morandi",
     white: language === "zh" ? "白色" : "White"
   };
 
   return (
     <div className={`menu-layer ${isOpen ? "menu-layer-open" : ""}`} aria-hidden={!isOpen}>
-      <button className="menu-scrim" onClick={onClose} type="button" aria-label="关闭菜单" />
-      <aside className="side-menu" aria-label="邮箱菜单">
+      <button className="menu-scrim" onClick={onClose} type="button" aria-label={language === "zh" ? "关闭菜单" : "Close menu"} />
+      <aside className="side-menu" aria-label={language === "zh" ? "邮箱菜单" : "Mailbox menu"}>
         <header className="side-menu-header">
           <h2>{text(language, "esmailMail")}</h2>
           <div className="side-menu-actions">
-            <button type="button" aria-label="关闭" onClick={onClose}>
+            <button type="button" aria-label={language === "zh" ? "关闭" : "Close"} onClick={onClose}>
               <X size={24} />
             </button>
           </div>

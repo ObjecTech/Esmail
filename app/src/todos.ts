@@ -23,7 +23,7 @@ export function createSuggestedTodo(email: Email): Todo | null {
   return createTodoFromEmail(email, email.aiAction.title, "suggested");
 }
 
-export function createTodoFromEmail(email: Email, title = email.aiAction?.title || `处理：${email.subject}`, mode: "automatic" | "suggested" = "suggested"): Todo {
+export function createTodoFromEmail(email: Email, title = email.aiAction?.title || `Handle: ${email.subject}`, mode: "automatic" | "suggested" = "suggested"): Todo {
   return {
     id: todoIdForEmail(email.id),
     emailId: email.id,
@@ -31,7 +31,7 @@ export function createTodoFromEmail(email: Email, title = email.aiAction?.title 
     source: email.senderName,
     status: "active",
     createdMode: mode,
-    createdAtLabel: "刚刚"
+    createdAtLabel: "Now"
   };
 }
 

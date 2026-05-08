@@ -14,7 +14,7 @@ function renderMenu(mailboxCounts: Record<MailboxView, number>, overrides: { the
       language="zh"
       mailboxCounts={mailboxCounts}
       mailboxView="drafts"
-      theme={overrides.theme || "classic"}
+      theme={overrides.theme || "morandi"}
       onCategorySelect={vi.fn()}
       onClose={vi.fn()}
       onMailboxSelect={vi.fn()}
@@ -45,18 +45,26 @@ describe("SideMenu", () => {
     expect(within(screen.getByRole("button", { name: "草稿" })).queryByText("1")).toBeNull();
   });
 
-  it("shows the theme switch below language and calls the theme toggle", () => {
+  it("shows the Morandi theme switch below language and calls the theme toggle", () => {
     const onToggleTheme = vi.fn();
-    renderMenu(mailboxCounts, { theme: "white", onToggleTheme });
+    renderMenu(mailboxCounts, { onToggleTheme });
 
     const languageRow = screen.getByRole("button", { name: /语言/ });
     const themeRow = screen.getByRole("button", { name: /主题/ });
 
     expect(languageRow.compareDocumentPosition(themeRow)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(within(themeRow).getByText("白色")).toBeTruthy();
+    expect(within(themeRow).getByText("Morandi")).toBeTruthy();
 
     themeRow.click();
 
     expect(onToggleTheme).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels the restored white theme in Chinese", () => {
+    renderMenu(mailboxCounts, { theme: "white" });
+
+    const themeRow = screen.getByRole("button", { name: /主题/ });
+
+    expect(within(themeRow).getByText("白色")).toBeTruthy();
   });
 });

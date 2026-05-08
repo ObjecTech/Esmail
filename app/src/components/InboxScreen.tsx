@@ -1,4 +1,4 @@
-import { Check, Hexagon, Menu, Plus, Search, SlidersHorizontal, UserRound } from "lucide-react";
+import { Archive, ArrowLeft, Check, Hexagon, MailCheck, Menu, MoreHorizontal, Plus, Search, SlidersHorizontal, Trash2, UserRound } from "lucide-react";
 import { useState } from "react";
 import { categoryLabel, text } from "../language";
 import { emailCategoryIds } from "../rules";
@@ -19,9 +19,13 @@ interface InboxScreenProps {
   showCategories: boolean;
   todos: Todo[];
   onAddAccount: () => void;
+  onArchiveEmails: (emailIds: string[]) => void;
+  onAssignCategory: (emailIds: string[], categoryId: string) => void;
   onCategoryChange: (categoryId: string) => void;
   onConnectGoogle: () => void;
+  onDeleteEmails: (emailIds: string[]) => void;
   onLogoutAccount: () => void;
+  onMarkReadEmails: (emailIds: string[]) => void;
   onOpenEmail: (email: Email) => void;
   onOpenMenu: () => void;
   onOpenSettings: () => void;
@@ -41,19 +45,27 @@ export function InboxScreen({
   showCategories,
   todos,
   onAddAccount,
+  onArchiveEmails,
+  onAssignCategory,
   onCategoryChange,
   onConnectGoogle,
+  onDeleteEmails,
   onLogoutAccount,
+  onMarkReadEmails,
   onOpenEmail,
   onOpenMenu,
   onOpenSettings,
   onSearchChange
 }: InboxScreenProps) {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [labelMenuOpen, setLabelMenuOpen] = useState(false);
+  const [selectedEmailIds, setSelectedEmailIds] = useState<string[]>([]);
   const isSearching = searchQuery.trim().length > 0;
   const activeEmails = showCategories && !isSearching && activeCategoryId !== "all"
     ? emails.filter((email) => emailCategoryIds(email).includes(activeCategoryId))
     : emails;
+  const isSelectionMode = selectedEmailIds.length > 0;
+  const allVisibleSelected = activeEmails.length > 0 && activeEmails.every((email) => selectedEmailIds.includes(email.id));
   const accountInitial = (session.name || session.email || "G").slice(0, 2);
   const isQq = session.provider === "qq";
   const providerName = isQq ? (language === "zh" ? "QQ 邮箱" : "QQ Mail") : "Gmail";
@@ -62,30 +74,107 @@ export function InboxScreen({
     : (language === "zh" ? "连接 Google 邮箱" : "Connect Google Mail");
   const loadingLabel = language === "zh" ? `正在同步 ${providerName}` : `Syncing ${providerName}`;
   const errorLabel = language === "zh" ? `${providerName} 同步失败` : `${providerName} sync failed`;
+  const selectedCountLabel = language === "zh" ? `已选择 ${selectedEmailIds.length} 封邮件` : `${selectedEmailIds.length} emails selected`;
+
+  function enterSelection(email: Email) {
+    setAccountMenuOpen(false);
+    setLabelMenuOpen(false);
+    setSelectedEmailIds([email.id]);
+  }
+
+  function exitSelection() {
+    setLabelMenuOpen(false);
+    setSelectedEmailIds([]);
+  }
+
+  function toggleSelected(email: Email) {
+    setSelectedEmailIds((current) => {
+      if (current.includes(email.id)) return current.filter((id) => id !== email.id);
+      return [...current, email.id];
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedEmailIds(allVisibleSelected ? [] : activeEmails.map((email) => email.id));
+  }
+
+  function runBulkAction(action: (emailIds: string[]) => void) {
+    if (selectedEmailIds.length === 0) return;
+    action(selectedEmailIds);
+    exitSelection();
+  }
+
+  function assignSelectedCategory(categoryId: string) {
+    if (selectedEmailIds.length === 0) return;
+    onAssignCategory(selectedEmailIds, categoryId);
+    exitSelection();
+  }
 
   return (
     <section className="screen-section inbox-screen">
-      <header className="inbox-header">
-        <IconButton label="菜单" onClick={onOpenMenu}>
-          <Menu size={28} />
-          <span className="notification-dot" />
-        </IconButton>
-        <label className="search-ghost">
-          <Search size={23} />
-          <input
-            aria-label={text(language, "search")}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={text(language, "search")}
-            value={searchQuery}
-          />
-        </label>
-        <IconButton className="profile-button" label="账户" onClick={() => setAccountMenuOpen((open) => !open)}>
-          {session.picture ? <img alt="" src={session.picture} /> : <span>{accountInitial}</span>}
-        </IconButton>
-        <IconButton label="分类规则设置" onClick={onOpenSettings}>
-          <SlidersHorizontal size={25} />
-        </IconButton>
-      </header>
+      {isSelectionMode ? (
+        <header className="inbox-header inbox-selection-header">
+          <IconButton label={language === "zh" ? "退出多选" : "Exit selection"} onClick={exitSelection}>
+            <ArrowLeft size={28} />
+          </IconButton>
+          <span aria-label={selectedCountLabel} className="selection-count">{selectedEmailIds.length}</span>
+          <div className="selection-action-group">
+            <IconButton label={language === "zh" ? "归档" : "Archive"} onClick={() => runBulkAction(onArchiveEmails)}>
+              <Archive size={25} />
+            </IconButton>
+            <IconButton label={language === "zh" ? "删除" : "Delete"} onClick={() => runBulkAction(onDeleteEmails)}>
+              <Trash2 size={25} />
+            </IconButton>
+            <IconButton label={language === "zh" ? "一键已读" : "Mark read"} onClick={() => runBulkAction(onMarkReadEmails)}>
+              <MailCheck size={25} />
+            </IconButton>
+            <IconButton label={language === "zh" ? "更多操作" : "More actions"} onClick={() => setLabelMenuOpen((open) => !open)}>
+              <MoreHorizontal size={27} />
+            </IconButton>
+          </div>
+        </header>
+      ) : (
+        <header className="inbox-header">
+          <IconButton label={language === "zh" ? "菜单" : "Menu"} onClick={onOpenMenu}>
+            <Menu size={28} />
+            <span className="notification-dot" />
+          </IconButton>
+          <label className="search-ghost">
+            <Search size={23} />
+            <input
+              aria-label={text(language, "search")}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={text(language, "search")}
+              value={searchQuery}
+            />
+          </label>
+          <IconButton className="profile-button" label={language === "zh" ? "账户" : "Account"} onClick={() => setAccountMenuOpen((open) => !open)}>
+            {session.picture ? <img alt="" src={session.picture} /> : <span>{accountInitial}</span>}
+          </IconButton>
+          <IconButton label={language === "zh" ? "分类规则设置" : "Sort rule settings"} onClick={onOpenSettings}>
+            <SlidersHorizontal size={25} />
+          </IconButton>
+        </header>
+      )}
+
+      {labelMenuOpen ? (
+        <div aria-label={language === "zh" ? "智能标签" : "Smart labels"} className="bulk-label-popover" role="dialog">
+          <div className="bulk-label-head">
+            <strong>{language === "zh" ? "智能标签" : "Smart labels"}</strong>
+            <button onClick={onOpenSettings} type="button" aria-label={language === "zh" ? "创建智能标签" : "Create smart label"}>
+              <Plus size={24} />
+            </button>
+          </div>
+          <div className="bulk-label-list">
+            {categories.map((category) => (
+              <button key={category.id} onClick={() => assignSelectedCategory(category.id)} type="button">
+                <span className="bulk-label-swatch" style={{ background: category.color }} />
+                <span>{categoryLabel(category, language)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {accountMenuOpen ? (
         <div className="account-switcher-popover">
@@ -121,7 +210,16 @@ export function InboxScreen({
         </div>
       ) : null}
 
-      {showCategories ? (
+      {isSelectionMode ? (
+        <div className="select-all-row">
+          <button aria-pressed={allVisibleSelected} onClick={toggleSelectAll} type="button">
+            <span className={`select-all-box ${allVisibleSelected ? "select-all-box-active" : ""}`}>
+              {allVisibleSelected ? <Check size={19} strokeWidth={3} /> : null}
+            </span>
+            <span>{language === "zh" ? "全选" : "Select all"}</span>
+          </button>
+        </div>
+      ) : showCategories ? (
         <div className="category-tabs" role="tablist" aria-label="邮件分类">
           <button
             className={`category-tab ${activeCategoryId === "all" ? "category-tab-active" : ""}`}
@@ -149,7 +247,6 @@ export function InboxScreen({
         <div className="mailbox-title-strip">{mailboxTitle}</div>
       )}
 
-      <div className="mail-date-group">{language === "zh" ? "今天" : "Today"}</div>
       {gmailStatus === "idle" ? (
         <button className="gmail-connect-banner" onClick={onConnectGoogle} type="button">
           <strong>{connectLabel}</strong>
@@ -180,7 +277,11 @@ export function InboxScreen({
               email={email}
               key={email.id}
               language={language}
+              isSelected={selectedEmailIds.includes(email.id)}
+              isSelectionMode={isSelectionMode}
+              onLongPress={enterSelection}
               onOpen={onOpenEmail}
+              onSelectionToggle={toggleSelected}
               todo={todo}
             />
           );

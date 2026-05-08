@@ -650,7 +650,8 @@ button {
   animation: screen-in 180ms ease-out both;
 }
 
-.compose-screen {
+.compose-screen,
+.inbox-screen {
   position: relative;
 }
 
@@ -702,6 +703,24 @@ button {
 .search-ghost input::placeholder {
   color: #888b94;
   opacity: 1;
+}
+
+.inbox-selection-header {
+  min-height: 48px;
+  margin-bottom: 14px;
+}
+
+.selection-count {
+  color: #f8f9ff;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.selection-action-group {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .notification-dot {
@@ -904,11 +923,109 @@ button {
   font-weight: 900;
 }
 
-.mail-date-group {
-  color: #848790;
-  font-size: 16px;
+.select-all-row {
+  display: flex;
+  margin: 16px 0 14px;
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+
+.select-all-row button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 13px;
+  border: 0;
+  padding: 0;
+  color: #f7f8fb;
+  background: transparent;
+  font-size: 18px;
   font-weight: 850;
-  margin: 24px 0 14px;
+}
+
+.select-all-box {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #6f7480;
+  border-radius: 8px;
+  color: #07121b;
+}
+
+.select-all-box-active {
+  border-color: #53b7ff;
+  background: #53b7ff;
+}
+
+.bulk-label-popover {
+  position: absolute;
+  top: 76px;
+  right: 22px;
+  z-index: 24;
+  width: min(360px, calc(100% - 44px));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 22px;
+  background: rgba(10, 11, 16, 0.96);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  animation: pop-in 160ms ease-out both;
+}
+
+.bulk-label-head {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.bulk-label-head strong {
+  flex: 1;
+  color: #f8f9ff;
+  font-size: 19px;
+  font-weight: 920;
+}
+
+.bulk-label-head button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #07121b;
+  background: #f7f8fb;
+}
+
+.bulk-label-list {
+  display: grid;
+  padding: 0 10px 12px;
+}
+
+.bulk-label-list button {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 8px;
+  color: #f6f7fb;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 820;
+  text-align: left;
+}
+
+.bulk-label-list button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bulk-label-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
 }
 
 .email-list {
@@ -957,17 +1074,18 @@ button {
 .email-row {
   position: relative;
   width: 100%;
-  min-height: 86px;
+  height: 102px;
   display: grid;
-  grid-template-columns: 45px minmax(0, 1fr) 15px;
-  gap: 11px;
+  grid-template-columns: 39px minmax(0, 1fr) 14px;
+  gap: 9px;
   align-items: start;
   border: 0;
-  border-radius: 18px;
-  padding: 10px 3px;
+  border-radius: 16px;
+  padding: 8px 3px;
   color: inherit;
   background: transparent;
   text-align: left;
+  overflow: hidden;
   transition: background 160ms ease, transform 160ms ease;
 }
 
@@ -981,27 +1099,51 @@ button {
   transform: translateX(2px);
 }
 
+.email-row-selecting {
+  grid-template-columns: 39px minmax(0, 1fr);
+}
+
+.email-row-selecting .email-chevron {
+  display: none;
+}
+
+.email-row-selected {
+  background: rgba(83, 183, 255, 0.07);
+}
+
 .unread-dot {
   position: absolute;
-  left: 18px;
-  bottom: 13px;
-  width: 9px;
-  height: 9px;
+  left: 16px;
+  bottom: 11px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #53b7ff;
   box-shadow: 0 0 0 3px rgba(83, 183, 255, 0.14);
 }
 
 .sender-avatar {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: var(--avatar);
   color: #fff;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 950;
+}
+
+.selection-avatar {
+  color: #f7f8fb;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.16);
+}
+
+.selection-avatar-active {
+  color: #fff;
+  background: #53b7ff;
+  box-shadow: 0 10px 26px rgba(83, 183, 255, 0.28);
 }
 
 .large-avatar {
@@ -1031,28 +1173,28 @@ button {
 }
 
 .sender-name {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 900;
 }
 
 .email-date {
   flex: 0 0 auto;
   color: #bcbec6;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .email-subject {
-  margin-top: 4px;
-  font-size: 16px;
+  margin-top: 2px;
+  font-size: 14px;
   font-weight: 900;
 }
 
 .email-snippet {
-  margin-top: 3px;
+  margin-top: 2px;
   color: #8d9099;
-  font-size: 14px;
-  line-height: 1.28;
+  font-size: 13px;
+  line-height: 1.24;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -1061,13 +1203,13 @@ button {
 
 .email-tags {
   display: flex;
-  gap: 7px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: 5px;
 }
 
 .mini-tag {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   color: #8e929b;
 }
@@ -1456,7 +1598,6 @@ button {
 .phone-stage[data-theme="white"] .account-row strong,
 .phone-stage[data-theme="white"] .email-date,
 .phone-stage[data-theme="white"] .email-snippet,
-.phone-stage[data-theme="white"] .mail-date-group,
 .phone-stage[data-theme="white"] .detail-meta,
 .phone-stage[data-theme="white"] .blocked-line,
 .phone-stage[data-theme="white"] .detail-todo-meta,
@@ -1600,7 +1741,6 @@ button {
 
 .phone-stage[data-theme="white"] .ai-message-assistant,
 .phone-stage[data-theme="white"] .ai-citation-main p,
-.phone-stage[data-theme="white"] .ai-citation-card > p,
 .phone-stage[data-theme="white"] .ai-citation-expanded p,
 .phone-stage[data-theme="white"] .ai-message-thinking p {
   color: #4b5563;
@@ -2200,7 +2340,6 @@ button {
 }
 
 .ai-citation-main p,
-.ai-citation-card > p,
 .ai-citation-expanded p {
   margin-bottom: 0;
   color: #9aa0ad;
@@ -3045,6 +3184,34 @@ button {
     padding-top: 24px;
   }
 
+  .category-chooser {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .category-chooser::-webkit-scrollbar {
+    display: none;
+  }
+
+  .category-check-grid {
+    width: max-content;
+    min-width: 100%;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(158px, max-content);
+    grid-template-columns: none;
+    grid-template-rows: repeat(2, minmax(46px, auto));
+  }
+
+  .category-check {
+    min-width: 158px;
+    justify-content: flex-start;
+    scroll-snap-align: start;
+  }
+
   .todo-edit-bar {
     bottom: 20px;
     width: calc(100vw - 44px);
@@ -3225,6 +3392,10 @@ button {
     display: none;
   }
 
+  .inbox-selection-header > .icon-button:first-child {
+    display: grid;
+  }
+
   .search-ghost {
     max-width: 760px;
     min-height: 54px;
@@ -3245,26 +3416,35 @@ button {
     padding: 5px 0 15px;
   }
 
-  .mail-date-group {
-    margin-top: 30px;
+  .select-all-row {
+    margin-top: 18px;
+  }
+
+  .bulk-label-popover {
+    top: 92px;
+    right: clamp(28px, 4vw, 62px);
   }
 
   .email-list {
-    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-    gap: 10px 26px;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 8px 18px;
     align-items: start;
   }
 
   .email-row {
-    min-height: 96px;
-    border-radius: 20px;
-    padding: 14px 14px;
+    height: 102px;
+    border-radius: 18px;
+    padding: 10px 12px;
     background: rgba(255, 255, 255, 0.018);
   }
 
+  .email-snippet {
+    -webkit-line-clamp: 1;
+  }
+
   .unread-dot {
-    left: 24px;
-    bottom: 19px;
+    left: 22px;
+    bottom: 15px;
   }
 
   .email-row:hover {
@@ -3303,6 +3483,33 @@ button {
   background: rgba(255, 255, 255, 0.96);
 }
 
+.phone-stage[data-theme="white"] .selection-count,
+.phone-stage[data-theme="white"] .select-all-row button,
+.phone-stage[data-theme="white"] .bulk-label-head strong,
+.phone-stage[data-theme="white"] .bulk-label-list button {
+  color: #263445;
+}
+
+.phone-stage[data-theme="white"] .select-all-box {
+  border-color: #aab5c4;
+}
+
+.phone-stage[data-theme="white"] .select-all-box-active {
+  border-color: #52b7ff;
+  background: #52b7ff;
+}
+
+.phone-stage[data-theme="white"] .bulk-label-popover {
+  border-color: #d8e2ee;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 24px 58px rgba(30, 41, 59, 0.16);
+}
+
+.phone-stage[data-theme="white"] .bulk-label-list button:hover,
+.phone-stage[data-theme="white"] .email-row-selected {
+  background: #edf7ff;
+}
+
 .phone-stage[data-theme="white"] .email-row {
   background: #fff;
   border: 1px solid #e2e9f2;
@@ -3315,4 +3522,393 @@ button {
 
 .phone-stage[data-theme="white"] .email-list {
   gap: 12px;
+}
+
+.phone-stage[data-theme="morandi"] {
+  --light-stage: #f6f1ea;
+  --light-shell: #fbf8f2;
+  --light-panel: #fffdfa;
+  --light-panel-strong: #ffffff;
+  --light-text: #2f3432;
+  --light-muted: #66706b;
+  --light-subtle: #7c837d;
+  --light-border: #ded8ce;
+  --light-accent: #a9b7a1;
+  --light-accent-soft: #dde6d8;
+  --light-action: #66706b;
+  --light-highlight: #9eb6c8;
+  --light-highlight-soft: #d7e5ef;
+  --light-warm: #c7a092;
+  --light-warm-soft: #e8d3ca;
+  --light-danger: #c95f59;
+  --light-shadow: rgba(72, 64, 54, 0.12);
+}
+
+.phone-stage[data-theme="morandi"] {
+  color: var(--light-text);
+  background:
+    radial-gradient(circle at 18% 8%, color-mix(in srgb, var(--light-highlight-soft) 66%, transparent), transparent 24rem),
+    radial-gradient(circle at 88% 92%, color-mix(in srgb, var(--light-accent-soft) 58%, transparent), transparent 28rem),
+    var(--light-stage);
+}
+
+.phone-stage[data-theme="morandi"] .phone-shell,
+.phone-stage[data-theme="morandi"] .side-menu {
+  border-color: var(--light-border);
+  background: var(--light-shell);
+  box-shadow: 0 26px 70px var(--light-shadow), inset 0 1px rgba(255, 255, 255, 0.82);
+}
+
+.phone-stage[data-theme="morandi"] .side-menu {
+  border-right: 1px solid var(--light-border);
+  box-shadow: 18px 0 42px var(--light-shadow);
+}
+
+.phone-stage[data-theme="morandi"] .screen-scroll,
+.phone-stage[data-theme="morandi"] .inbox-screen {
+  background: var(--light-shell);
+}
+
+.phone-stage[data-theme="morandi"] .menu-scrim {
+  background: rgba(21, 24, 23, 0);
+}
+
+.phone-stage[data-theme="morandi"] .menu-layer-open .menu-scrim {
+  background: color-mix(in srgb, var(--light-text) 26%, transparent);
+}
+
+.phone-stage[data-theme="morandi"] .side-menu-header h2,
+.phone-stage[data-theme="morandi"] .side-menu-actions button,
+.phone-stage[data-theme="morandi"] .menu-primary-row,
+.phone-stage[data-theme="morandi"] .menu-row,
+.phone-stage[data-theme="morandi"] .account-switcher-all,
+.phone-stage[data-theme="morandi"] .account-switcher-row,
+.phone-stage[data-theme="morandi"] .icon-button,
+.phone-stage[data-theme="morandi"] .compose-fab,
+.phone-stage[data-theme="morandi"] .bottom-nav-item,
+.phone-stage[data-theme="morandi"] .center-title-header h1,
+.phone-stage[data-theme="morandi"] .settings-header h1,
+.phone-stage[data-theme="morandi"] .ai-hero h1,
+.phone-stage[data-theme="morandi"] .ai-history-header h1,
+.phone-stage[data-theme="morandi"] .detail-title,
+.phone-stage[data-theme="morandi"] .detail-sender,
+.phone-stage[data-theme="morandi"] .reply-icon,
+.phone-stage[data-theme="morandi"] .inline-more-button,
+.phone-stage[data-theme="morandi"] .search-ghost input,
+.phone-stage[data-theme="morandi"] .ai-suggestions button,
+.phone-stage[data-theme="morandi"] .attachment-menu button,
+.phone-stage[data-theme="morandi"] .ai-history-open,
+.phone-stage[data-theme="morandi"] .ai-message-assistant h2,
+.phone-stage[data-theme="morandi"] .ai-citation-main h3,
+.phone-stage[data-theme="morandi"] .ai-citation-expanded blockquote,
+.phone-stage[data-theme="morandi"] .email-row-unread .sender-name,
+.phone-stage[data-theme="morandi"] .email-row-unread .email-subject,
+.phone-stage[data-theme="morandi"] .summary-card ul,
+.phone-stage[data-theme="morandi"] .suggested-todo-card,
+.phone-stage[data-theme="morandi"] .detail-todo-title,
+.phone-stage[data-theme="morandi"] .email-body,
+.phone-stage[data-theme="morandi"] .email-body h2,
+.phone-stage[data-theme="morandi"] .todo-item-main,
+.phone-stage[data-theme="morandi"] .todo-menu-row,
+.phone-stage[data-theme="morandi"] .filter-option-row,
+.phone-stage[data-theme="morandi"] .priority-mark,
+.phone-stage[data-theme="morandi"] .done-empty h2,
+.phone-stage[data-theme="morandi"] .category-check,
+.phone-stage[data-theme="morandi"] .apply-checkbox,
+.phone-stage[data-theme="morandi"] .filter-row,
+.phone-stage[data-theme="morandi"] .date-filter-option,
+.phone-stage[data-theme="morandi"] .rule-row,
+.phone-stage[data-theme="morandi"] .smart-form-head,
+.phone-stage[data-theme="morandi"] .settings-block h2 {
+  color: var(--light-text);
+}
+
+.phone-stage[data-theme="morandi"] .menu-primary-row strong,
+.phone-stage[data-theme="morandi"] .menu-row strong,
+.phone-stage[data-theme="morandi"] .account-row strong,
+.phone-stage[data-theme="morandi"] .account-switcher-head span,
+.phone-stage[data-theme="morandi"] .account-switcher-all small,
+.phone-stage[data-theme="morandi"] .account-switcher-row small,
+.phone-stage[data-theme="morandi"] .email-date,
+.phone-stage[data-theme="morandi"] .email-snippet,
+.phone-stage[data-theme="morandi"] .detail-meta,
+.phone-stage[data-theme="morandi"] .blocked-line,
+.phone-stage[data-theme="morandi"] .detail-todo-meta,
+.phone-stage[data-theme="morandi"] .search-ghost,
+.phone-stage[data-theme="morandi"] .muted-menu-row,
+.phone-stage[data-theme="morandi"] .mini-tag,
+.phone-stage[data-theme="morandi"] .center-title-header p,
+.phone-stage[data-theme="morandi"] .settings-header p,
+.phone-stage[data-theme="morandi"] .ai-hero p,
+.phone-stage[data-theme="morandi"] .ai-history-empty,
+.phone-stage[data-theme="morandi"] .compose-fields span,
+.phone-stage[data-theme="morandi"] .compose-ai p,
+.phone-stage[data-theme="morandi"] .done-empty,
+.phone-stage[data-theme="morandi"] .todo-item-main small,
+.phone-stage[data-theme="morandi"] .ai-message-assistant,
+.phone-stage[data-theme="morandi"] .ai-citation-main p,
+.phone-stage[data-theme="morandi"] .ai-citation-expanded p,
+.phone-stage[data-theme="morandi"] .ai-citation-card,
+.phone-stage[data-theme="morandi"] .ai-message-thinking p,
+.phone-stage[data-theme="morandi"] .custom-section-label,
+.phone-stage[data-theme="morandi"] .custom-field-head span,
+.phone-stage[data-theme="morandi"] .custom-field-head h2,
+.phone-stage[data-theme="morandi"] .rule-grid label,
+.phone-stage[data-theme="morandi"] .rule-list-title,
+.phone-stage[data-theme="morandi"] .smart-form-head span,
+.phone-stage[data-theme="morandi"] .filter-row strong,
+.phone-stage[data-theme="morandi"] .custom-field-head p,
+.phone-stage[data-theme="morandi"] .rule-meta,
+.phone-stage[data-theme="morandi"] .ai-history-open svg,
+.phone-stage[data-theme="morandi"] .compose-chips button svg,
+.phone-stage[data-theme="morandi"] .signature {
+  color: var(--light-muted);
+}
+
+.phone-stage[data-theme="morandi"] .menu-divider,
+.phone-stage[data-theme="morandi"] .category-tabs,
+.phone-stage[data-theme="morandi"] .mailbox-title-strip,
+.phone-stage[data-theme="morandi"] .account-switcher-all,
+.phone-stage[data-theme="morandi"] .filter-row,
+.phone-stage[data-theme="morandi"] .rule-row,
+.phone-stage[data-theme="morandi"] .compose-fields label {
+  border-color: var(--light-border);
+}
+
+.phone-stage[data-theme="morandi"] .bottom-nav,
+.phone-stage[data-theme="morandi"] .compose-fab,
+.phone-stage[data-theme="morandi"] .icon-button,
+.phone-stage[data-theme="morandi"] .detail-actions,
+.phone-stage[data-theme="morandi"] .detail-more-menu,
+.phone-stage[data-theme="morandi"] .account-switcher-popover,
+.phone-stage[data-theme="morandi"] .compose-actions,
+.phone-stage[data-theme="morandi"] .attachment-menu,
+.phone-stage[data-theme="morandi"] .todo-menu-popover,
+.phone-stage[data-theme="morandi"] .todo-filter-sheet {
+  border-color: var(--light-border);
+  background: color-mix(in srgb, var(--light-panel) 94%, transparent);
+  box-shadow: 0 16px 38px var(--light-shadow);
+}
+
+.phone-stage[data-theme="morandi"] .bottom-nav-item-active,
+.phone-stage[data-theme="morandi"] .icon-button:hover,
+.phone-stage[data-theme="morandi"] .icon-button-active,
+.phone-stage[data-theme="morandi"] .email-row:hover,
+.phone-stage[data-theme="morandi"] .attachment-menu button:hover {
+  background: var(--light-accent-soft);
+}
+
+.phone-stage[data-theme="morandi"] .detail-more-menu button {
+  color: var(--light-text);
+  background: var(--light-panel-strong);
+  box-shadow: 0 8px 22px rgba(72, 64, 54, 0.08);
+}
+
+.phone-stage[data-theme="morandi"] .detail-more-menu svg {
+  color: var(--light-muted);
+}
+
+.phone-stage[data-theme="morandi"] .detail-more-menu button:hover {
+  background: var(--light-accent-soft);
+  color: #202725;
+}
+
+.phone-stage[data-theme="morandi"] .bottom-nav-item-active,
+.phone-stage[data-theme="morandi"] .menu-row-active,
+.phone-stage[data-theme="morandi"] .eyebrow,
+.phone-stage[data-theme="morandi"] .gmail-connect-banner strong,
+.phone-stage[data-theme="morandi"] .summary-card h2,
+.phone-stage[data-theme="morandi"] .summary-feedback,
+.phone-stage[data-theme="morandi"] .ai-suggestions svg,
+.phone-stage[data-theme="morandi"] .ai-input-box svg:first-child,
+.phone-stage[data-theme="morandi"] .compose-ai-input svg,
+.phone-stage[data-theme="morandi"] .ai-citation-main strong,
+.phone-stage[data-theme="morandi"] .ai-more-search,
+.phone-stage[data-theme="morandi"] .send-blue,
+.phone-stage[data-theme="morandi"] .compose-status,
+.phone-stage[data-theme="morandi"] .signature span,
+.phone-stage[data-theme="morandi"] .rule-row strong,
+.phone-stage[data-theme="morandi"] .filter-row-active,
+.phone-stage[data-theme="morandi"] .filter-row-active strong,
+.phone-stage[data-theme="morandi"] .filter-toggle:hover,
+.phone-stage[data-theme="morandi"] .date-filter-row:hover {
+  color: var(--light-action) !important;
+}
+
+.phone-stage[data-theme="morandi"] .bottom-nav,
+.phone-stage[data-theme="morandi"] .search-ghost {
+  border: 1px solid var(--light-border);
+}
+
+.phone-stage[data-theme="morandi"] .selection-count,
+.phone-stage[data-theme="morandi"] .select-all-row button,
+.phone-stage[data-theme="morandi"] .bulk-label-head strong,
+.phone-stage[data-theme="morandi"] .bulk-label-list button {
+  color: var(--light-text);
+}
+
+.phone-stage[data-theme="morandi"] .select-all-box {
+  border-color: var(--light-muted);
+}
+
+.phone-stage[data-theme="morandi"] .select-all-box-active {
+  border-color: var(--light-highlight);
+  background: var(--light-highlight);
+}
+
+.phone-stage[data-theme="morandi"] .bulk-label-popover {
+  border-color: var(--light-border);
+  background: color-mix(in srgb, var(--light-panel) 96%, transparent);
+  box-shadow: 0 24px 58px var(--light-shadow);
+}
+
+.phone-stage[data-theme="morandi"] .bulk-label-list button:hover,
+.phone-stage[data-theme="morandi"] .email-row-selected {
+  background: var(--light-highlight-soft);
+}
+
+.phone-stage[data-theme="morandi"] .search-ghost {
+  border-radius: 999px;
+  background: var(--light-panel);
+  padding: 0 14px;
+}
+
+.phone-stage[data-theme="morandi"] .email-list {
+  gap: 12px;
+}
+
+.phone-stage[data-theme="morandi"] .category-tab {
+  color: var(--light-muted);
+}
+
+.phone-stage[data-theme="morandi"] .category-tab-active {
+  color: var(--light-action) !important;
+}
+
+.phone-stage[data-theme="morandi"] .category-tab-active::after {
+  background: var(--light-highlight-soft);
+}
+
+.phone-stage[data-theme="morandi"] .email-row,
+.phone-stage[data-theme="morandi"] .todo-item,
+.phone-stage[data-theme="morandi"] .summary-card,
+.phone-stage[data-theme="morandi"] .detail-todo-card,
+.phone-stage[data-theme="morandi"] .suggested-todo-card,
+.phone-stage[data-theme="morandi"] .gmail-connect-banner,
+.phone-stage[data-theme="morandi"] .custom-card,
+.phone-stage[data-theme="morandi"] .date-filter-option,
+.phone-stage[data-theme="morandi"] .smart-label-card,
+.phone-stage[data-theme="morandi"] .settings-block,
+.phone-stage[data-theme="morandi"] .ai-message-assistant,
+.phone-stage[data-theme="morandi"] .ai-citation-card,
+.phone-stage[data-theme="morandi"] .ai-history-open,
+.phone-stage[data-theme="morandi"] .compose-chips button {
+  border: 1px solid var(--light-border);
+  background: var(--light-panel);
+  color: var(--light-muted);
+  box-shadow: 0 10px 24px var(--light-shadow);
+}
+
+.phone-stage[data-theme="morandi"] .email-row:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--light-highlight) 52%, var(--light-border));
+}
+
+.phone-stage[data-theme="morandi"] .sender-avatar,
+.phone-stage[data-theme="morandi"] .profile-button span,
+.phone-stage[data-theme="morandi"] .account-avatar {
+  color: var(--light-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--light-text) 12%, transparent);
+}
+
+.phone-stage[data-theme="morandi"] .large-avatar {
+  background: var(--light-text);
+  color: var(--light-panel);
+}
+
+.phone-stage[data-theme="morandi"] .nav-badge,
+.phone-stage[data-theme="morandi"] .error-banner strong,
+.phone-stage[data-theme="morandi"] .discard-action,
+.phone-stage[data-theme="morandi"] .todo-edit-bar .danger-action,
+.phone-stage[data-theme="morandi"] .rule-delete-button {
+  color: #ffffff;
+  background: var(--light-danger);
+}
+
+.phone-stage[data-theme="morandi"] .unread-dot,
+.phone-stage[data-theme="morandi"] .big-confirm,
+.phone-stage[data-theme="morandi"] .edit-confirm-button,
+.phone-stage[data-theme="morandi"] .todo-check-complete,
+.phone-stage[data-theme="morandi"] .filter-row-active .filter-indicator,
+.phone-stage[data-theme="morandi"] .date-filter-option-active,
+.phone-stage[data-theme="morandi"] .inline-form button,
+.phone-stage[data-theme="morandi"] .primary-wide,
+.phone-stage[data-theme="morandi"] .compose-ai-input button {
+  background: var(--light-accent);
+  color: var(--light-text);
+}
+
+.phone-stage[data-theme="morandi"] .round-input-action,
+.phone-stage[data-theme="morandi"] .send-action,
+.phone-stage[data-theme="morandi"] .send-action svg,
+.phone-stage[data-theme="morandi"] .compose-ai-input button svg {
+  background: var(--light-text);
+  color: var(--light-panel);
+}
+
+.phone-stage[data-theme="morandi"] .todo-check {
+  border-color: var(--light-accent);
+}
+
+.phone-stage[data-theme="morandi"] .suggested-plus,
+.phone-stage[data-theme="morandi"] .detail-notice,
+.phone-stage[data-theme="morandi"] .attachment-chips span,
+.phone-stage[data-theme="morandi"] .ai-citation-actions button,
+.phone-stage[data-theme="morandi"] .ai-more-search,
+.phone-stage[data-theme="morandi"] .text-pill,
+.phone-stage[data-theme="morandi"] .todo-edit-bar button,
+.phone-stage[data-theme="morandi"] .square-check,
+.phone-stage[data-theme="morandi"] .filter-indicator {
+  border-color: var(--light-border);
+  background: var(--light-highlight-soft);
+  color: var(--light-text);
+}
+
+.phone-stage[data-theme="morandi"] .ai-citation-main strong {
+  color: var(--light-action) !important;
+}
+
+.phone-stage[data-theme="morandi"] .gmail-connect-banner,
+.phone-stage[data-theme="morandi"] .ai-input-box,
+.phone-stage[data-theme="morandi"] .compose-ai-input,
+.phone-stage[data-theme="morandi"] .rule-grid select,
+.phone-stage[data-theme="morandi"] .rule-value-input,
+.phone-stage[data-theme="morandi"] .inline-form input,
+.phone-stage[data-theme="morandi"] .smart-label-card input,
+.phone-stage[data-theme="morandi"] .smart-label-card textarea,
+.phone-stage[data-theme="morandi"] .smart-label-form input,
+.phone-stage[data-theme="morandi"] .smart-label-form textarea,
+.phone-stage[data-theme="morandi"] .email-html-body {
+  border-color: var(--light-border);
+  background: var(--light-panel-strong);
+  color: var(--light-text);
+}
+
+.phone-stage[data-theme="morandi"] .ai-input-box input,
+.phone-stage[data-theme="morandi"] .compose-ai-input input,
+.phone-stage[data-theme="morandi"] .compose-fields input,
+.phone-stage[data-theme="morandi"] .compose-body {
+  color: var(--light-text);
+}
+
+.phone-stage[data-theme="morandi"] .ai-input-box input::placeholder,
+.phone-stage[data-theme="morandi"] .compose-ai-input input::placeholder,
+.phone-stage[data-theme="morandi"] .compose-body::placeholder,
+.phone-stage[data-theme="morandi"] .rule-value-input::placeholder,
+.phone-stage[data-theme="morandi"] .inline-form input::placeholder,
+.phone-stage[data-theme="morandi"] .smart-label-card input::placeholder,
+.phone-stage[data-theme="morandi"] .smart-label-card textarea::placeholder,
+.phone-stage[data-theme="morandi"] .smart-label-form input::placeholder,
+.phone-stage[data-theme="morandi"] .smart-label-form textarea::placeholder {
+  color: var(--light-muted);
 }

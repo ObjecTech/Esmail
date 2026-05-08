@@ -33,8 +33,8 @@ export function SettingsScreen({
   onViewSettingsChange,
   onBack
 }: SettingsScreenProps) {
-  const [label, setLabel] = useState(language === "zh" ? "自定义标签" : "Custom Label");
-  const [hint, setHint] = useState(language === "zh" ? "描述哪些邮件属于这个标签" : "Describe which emails belong here");
+  const [label, setLabel] = useState("");
+  const [hint, setHint] = useState("");
   const [selectedColor, setSelectedColor] = useState(colors[0]);
   const [field, setField] = useState<RuleField>("domain");
   const [value, setValue] = useState("SCC");
@@ -171,11 +171,11 @@ export function SettingsScreen({
   return (
     <section className="screen-section settings-screen">
       <header className="custom-view-header">
-        <IconButton label="返回" onClick={onBack}>
+        <IconButton label={language === "zh" ? "返回" : "Back"} onClick={onBack}>
           <ChevronLeft size={29} />
         </IconButton>
         <h1>{text(language, "customView")}</h1>
-        <button className="big-confirm" onClick={onBack} type="button" aria-label="保存自定义视图">
+        <button className="big-confirm" onClick={onBack} type="button" aria-label={language === "zh" ? "保存自定义视图" : "Save custom view"}>
           <Check size={31} strokeWidth={3} />
         </button>
       </header>

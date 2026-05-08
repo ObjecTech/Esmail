@@ -39,7 +39,7 @@ export function AppShell({
               language={language}
               onNavigate={onNavigate}
             />
-            <button className="compose-fab" onClick={onCompose} type="button" aria-label="写邮件">
+            <button className="compose-fab" onClick={onCompose} type="button" aria-label={language === "zh" ? "写邮件" : "Compose"}>
               <PenLine size={31} strokeWidth={2.45} />
               <SparkleDot />
             </button>

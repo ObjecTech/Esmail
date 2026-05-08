@@ -53,4 +53,25 @@ describe("EmailDetailScreen", () => {
     expect(summary?.compareDocumentPosition(todoCard as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(todoCard?.compareDocumentPosition(body as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
+
+  it("shows up to three summary bullets when the email has more key points", () => {
+    render(
+      <EmailDetailScreen
+        email={{
+          ...email,
+          summaryBullets: ["要点 1", "要点 2", "要点 3", "要点 4"]
+        }}
+        isTodoCompleted={false}
+        language="zh"
+        notice=""
+        onAction={vi.fn()}
+        onAddSuggestedTodo={vi.fn()}
+        onBack={vi.fn()}
+        onCompleteTodo={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("要点 3")).toBeTruthy();
+    expect(screen.queryByText("要点 4")).toBeNull();
+  });
 });

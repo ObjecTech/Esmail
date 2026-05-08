@@ -79,7 +79,7 @@ export async function askAssistant(prompt: string, language: Language, emails: E
   const data = await apiFetch<{ content: string }>("/api/ai/chat", {
     method: "POST",
     body: JSON.stringify({ prompt, language, emails })
-  }, { timeoutMs: 10_000 });
+  }, { timeoutMs: 45_000 });
   return assistantReplyFromText(data.content);
 }
 
@@ -90,10 +90,10 @@ export function createDraft(idea: string, language: string, tone: string) {
   });
 }
 
-export async function analyzeInbox(emails: Email[]) {
+export async function analyzeInbox(emails: Email[], language: Language = "en") {
   const data = await apiFetch<{ analysis: InboxAnalysis[] }>("/api/ai/analyze-inbox", {
     method: "POST",
-    body: JSON.stringify({ emails })
+    body: JSON.stringify({ emails, language })
   });
   return data.analysis;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSmtpMessage, decodeMimeBody, decodeMimeContent, decodeMimeWords, extractMimeImages } from "./qqMail.mjs";
+import { bodyStructureImageFromFetch, buildSmtpMessage, decodeMimeBody, decodeMimeContent, decodeMimeWords, extractBodyStructureImages, extractMimeImages } from "./qqMail.mjs";
 
 describe("QQ mail helpers", () => {
   it("decodes UTF-8 MIME words from IMAP headers", () => {
@@ -173,6 +173,79 @@ describe("QQ mail helpers", () => {
     expect(content.htmlBody).toBe("");
     expect(images).toHaveLength(1);
     expect(images[0].mimeType).toBe("image/png");
+  });
+
+  it("extracts JPEG images when QQ sends them as generic binary attachments", () => {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x45, 0x73, 0x6d, 0x61, 0x69, 0x6c]).toString("base64");
+    const raw = [
+      "Content-Type: multipart/related; boundary=\"b1\"",
+      "",
+      "--b1",
+      "Content-Type: text/html; charset=utf-8",
+      "Content-Transfer-Encoding: quoted-printable",
+      "",
+      "<p>Hello</p><img src=3D\"cid:photo\">",
+      "--b1",
+      "Content-Type: application/octet-stream; name=\"photo.jpg\"",
+      "Content-Transfer-Encoding: base64",
+      "Content-ID: <photo>",
+      "Content-Disposition: inline; filename=\"photo.jpg\"",
+      "",
+      jpeg,
+      "--b1--"
+    ].join("\r\n");
+
+    const images = extractMimeImages(raw);
+
+    expect(images).toHaveLength(1);
+    expect(images[0].filename).toBe("photo.jpg");
+    expect(images[0].mimeType).toBe("image/jpeg");
+    expect(images[0].dataUrl).toContain("data:image/jpeg;base64,");
+  });
+
+  it("finds inline JPEG parts from QQ BODYSTRUCTURE responses", () => {
+    const bodyStructure = [
+      "* 99 FETCH (UID 107 BODYSTRUCTURE (((\"TEXT\" \"PLAIN\" (\"charset\" \"utf-8\") NIL NIL \"BASE64\" 4416 58 NIL NIL NIL)",
+      "(\"TEXT\" \"HTML\" (\"charset\" \"utf-8\") NIL NIL \"BASE64\" 36474 469 NIL NIL NIL) \"ALTERNATIVE\" (\"BOUNDARY\" \"inner\") NIL NIL)",
+      "(\"IMAGE\" \"PNG\" (\"name\" \"image001.png\") \"image001.png@cid\" NIL \"BASE64\" 67670 NIL (\"inline\" (\"filename\" \"image001.png\" \"size\" \"49451\")) NIL)",
+      "(\"IMAGE\" \"JPEG\" (\"name\" \"image002.jpg\") \"image002.jpg@cid\" NIL \"BASE64\" 9606 NIL (\"inline\" (\"filename\" \"image002.jpg\" \"size\" \"7018\")) NIL)",
+      "(\"IMAGE\" \"JPEG\" (\"name\" \"image003.jpg\") \"image003.jpg@cid\" NIL \"BASE64\" 9606 NIL (\"inline\" (\"filename\" \"image003.jpg\" \"size\" \"7018\")) NIL)",
+      "\"RELATED\" (\"BOUNDARY\" \"outer\") NIL NIL))",
+      "A3 OK UID FETCH Completed"
+    ].join("\r\n");
+
+    const images = extractBodyStructureImages(bodyStructure);
+
+    expect(images.map((image) => image.partNumber)).toEqual(["2", "3", "4"]);
+    expect(images[1]).toMatchObject({
+      filename: "image002.jpg",
+      mimeType: "image/jpeg",
+      contentId: "image002.jpg@cid"
+    });
+  });
+
+  it("builds data URLs from separately fetched BODYSTRUCTURE image parts", () => {
+    const image = bodyStructureImageFromFetch(
+      {
+        partNumber: "3",
+        filename: "image002.jpg",
+        mimeType: "image/jpeg",
+        contentId: "image002.jpg@cid"
+      },
+      [
+        "* 99 FETCH (UID 107 BODY[3]<0> {16}",
+        "/9j/4ABFc21haWw=",
+        ")",
+        "A4 OK UID FETCH Completed"
+      ].join("\r\n")
+    );
+
+    expect(image).toMatchObject({
+      filename: "image002.jpg",
+      mimeType: "image/jpeg",
+      contentId: "image002.jpg@cid"
+    });
+    expect(image?.dataUrl).toBe("data:image/jpeg;base64,/9j/4ABFc21haWw=");
   });
 
   it("parses headerless multipart bodies without leaking binary parts into text", () => {

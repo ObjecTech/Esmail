@@ -369,6 +369,192 @@ function imageMimeFromBytes(bytes) {
   return "";
 }
 
+function normalizeImageMimeType(mimeType = "") {
+  const normalized = String(mimeType).split(";")[0].trim().toLowerCase();
+  if (!normalized.startsWith("image/")) return "";
+  return {
+    "image/jpg": "image/jpeg",
+    "image/jpe": "image/jpeg",
+    "image/pjpeg": "image/jpeg",
+    "image/x-png": "image/png"
+  }[normalized] || normalized;
+}
+
+function imageMimeFromFilename(filename = "") {
+  const extension = String(filename).toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] || "";
+  return {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    jpe: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    bmp: "image/bmp",
+    svg: "image/svg+xml"
+  }[extension] || "";
+}
+
+function decodePartBytes(part) {
+  const transferEncoding = transferEncodingFromHeaders(part.headers);
+  return transferEncoding === "base64"
+    ? Buffer.from(part.body.replace(/\s+/g, ""), "base64")
+    : Buffer.from(part.body, "binary");
+}
+
+function tokenizeBodyStructure(value = "") {
+  const tokens = [];
+  let index = 0;
+  while (index < value.length) {
+    const char = value[index];
+    if (/\s/.test(char)) {
+      index += 1;
+      continue;
+    }
+    if (char === "(" || char === ")") {
+      tokens.push(char);
+      index += 1;
+      continue;
+    }
+    if (char === '"') {
+      let text = "";
+      index += 1;
+      while (index < value.length) {
+        if (value[index] === "\\" && index + 1 < value.length) {
+          text += value[index + 1];
+          index += 2;
+          continue;
+        }
+        if (value[index] === '"') {
+          index += 1;
+          break;
+        }
+        text += value[index];
+        index += 1;
+      }
+      tokens.push(text);
+      continue;
+    }
+    const start = index;
+    while (index < value.length && !/[\s()]/.test(value[index])) index += 1;
+    tokens.push(value.slice(start, index));
+  }
+  return tokens;
+}
+
+function parseBodyStructureTokens(tokens) {
+  let index = 0;
+  function parseValue() {
+    const token = tokens[index];
+    index += 1;
+    if (token === "(") {
+      const items = [];
+      while (index < tokens.length && tokens[index] !== ")") items.push(parseValue());
+      index += 1;
+      return items;
+    }
+    if (/^NIL$/i.test(String(token))) return null;
+    return token;
+  }
+  return parseValue();
+}
+
+function extractBodyStructureExpression(raw = "") {
+  const marker = raw.search(/\bBODYSTRUCTURE\b/i);
+  if (marker < 0) return "";
+  const start = raw.indexOf("(", marker);
+  if (start < 0) return "";
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = start; index < raw.length; index += 1) {
+    const char = raw[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') quoted = false;
+      continue;
+    }
+    if (char === '"') quoted = true;
+    else if (char === "(") depth += 1;
+    else if (char === ")") {
+      depth -= 1;
+      if (depth === 0) return raw.slice(start, index + 1);
+    }
+  }
+  return "";
+}
+
+function bodyStructureParamValue(params, key) {
+  if (!Array.isArray(params)) return "";
+  for (let index = 0; index < params.length - 1; index += 2) {
+    if (String(params[index]).toLowerCase() === key.toLowerCase()) return decodeMimeWords(String(params[index + 1] || ""));
+  }
+  return "";
+}
+
+function bodyStructureFilename(part) {
+  const name = bodyStructureParamValue(part[2], "name");
+  const dispositionParams = Array.isArray(part[8]) ? part[8][1] : null;
+  return bodyStructureParamValue(dispositionParams, "filename") || name;
+}
+
+export function extractBodyStructureImages(raw = "") {
+  const expression = extractBodyStructureExpression(raw);
+  if (!expression) return [];
+  const parsed = parseBodyStructureTokens(tokenizeBodyStructure(expression));
+  const images = [];
+
+  function walk(node, prefix = "") {
+    if (!Array.isArray(node) || !node.length) return;
+    if (typeof node[0] === "string" && typeof node[1] === "string") {
+      const mimeType = normalizeImageMimeType(`image/${node[1]}`);
+      if (String(node[0]).toLowerCase() === "image" && mimeType) {
+        images.push({
+          partNumber: prefix,
+          filename: bodyStructureFilename(node) || `image-${images.length + 1}`,
+          mimeType,
+          contentId: String(node[3] || "").replace(/^<|>$/g, "")
+        });
+      }
+      return;
+    }
+
+    let childIndex = 0;
+    for (const child of node) {
+      if (!Array.isArray(child)) break;
+      childIndex += 1;
+      walk(child, prefix ? `${prefix}.${childIndex}` : String(childIndex));
+    }
+  }
+
+  walk(parsed);
+  return images;
+}
+
+function bodyFromFetchResponse(raw = "") {
+  return stripImapLiterals(raw)
+    .replace(/^\* \d+ FETCH[^\r\n]*\r?\n/i, "")
+    .replace(/\r?\n\)\s*$/g, "")
+    .trim();
+}
+
+export function bodyStructureImageFromFetch(part, raw = "", options = {}) {
+  const maxBytes = options.maxBytes || 2_000_000;
+  const body = bodyFromFetchResponse(raw).replace(/\s+/g, "");
+  if (!body) return null;
+  const bytes = Buffer.from(body, "base64");
+  if (!bytes.length || bytes.length > maxBytes) return null;
+  const mimeType = normalizeImageMimeType(part.mimeType) || imageMimeFromBytes(bytes) || imageMimeFromFilename(part.filename);
+  if (!mimeType) return null;
+  return {
+    filename: part.filename,
+    mimeType,
+    contentId: part.contentId,
+    disposition: "inline",
+    dataUrl: `data:${mimeType};base64,${bytes.toString("base64")}`
+  };
+}
+
 function splitFetchResponses(raw = "") {
   return raw
     .split(/(?=^\* \d+ FETCH\b)/gim)
@@ -428,16 +614,14 @@ export function extractMimeImages(raw = "", options = {}) {
   for (const part of parts) {
     if (images.length >= maxImages) break;
     const partHeaders = part.headers;
-    const mimeType = part.contentType;
-    if (!mimeType.startsWith("image/")) continue;
-    const transferEncoding = transferEncodingFromHeaders(partHeaders);
-    const bytes = transferEncoding === "base64"
-      ? Buffer.from(part.body.replace(/\s+/g, ""), "base64")
-      : Buffer.from(part.body, "binary");
-    if (!bytes.length || bytes.length > maxBytes) continue;
     const contentId = (parseHeader(partHeaders, "Content-ID") || "").replace(/^<|>$/g, "");
+    const filename = extractFilename(partHeaders) || contentId || `image-${images.length + 1}`;
+    const bytes = decodePartBytes(part);
+    const mimeType = normalizeImageMimeType(part.contentType) || imageMimeFromBytes(bytes) || imageMimeFromFilename(filename);
+    if (!mimeType) continue;
+    if (!bytes.length || bytes.length > maxBytes) continue;
     images.push({
-      filename: extractFilename(partHeaders) || contentId || `image-${images.length + 1}`,
+      filename,
       mimeType,
       contentId,
       disposition: parseHeader(partHeaders, "Content-Disposition"),
@@ -571,10 +755,33 @@ export async function getQqMessage(session, messageId) {
     if (!/^A1 OK/i.test(loginLines.at(-1) || "")) throw new Error("QQ IMAP 登录已失效，请重新登录。");
     client.write("A2 SELECT INBOX");
     await client.readUntil((line) => /^A2 (OK|NO|BAD)/i.test(line));
-    client.write(`A3 UID FETCH ${uid} (BODY.PEEK[])`);
-    const lines = await client.readUntil((line) => /^A3 (OK|NO|BAD)/i.test(line), 30_000);
-    client.write("A4 LOGOUT");
-    return mapImapFetchToEmail(uid, lines.join("\n"), { includeImages: true });
+    client.write(`A3 UID FETCH ${uid} (BODYSTRUCTURE)`);
+    const structureLines = await client.readUntil((line) => /^A3 (OK|NO|BAD)/i.test(line), 30_000);
+    client.write(`A4 UID FETCH ${uid} (BODY.PEEK[])`);
+    const lines = await client.readUntil((line) => /^A4 (OK|NO|BAD)/i.test(line), 30_000);
+    const email = mapImapFetchToEmail(uid, lines.join("\n"), { includeImages: true });
+    const existingContentIds = new Set((email.images || []).map((image) => image.contentId).filter(Boolean));
+    const unresolvedContentIds = new Set(
+      [...String(email.htmlBody || "").matchAll(/cid:([^"'\s>]+)/gi)]
+        .map((match) => decodeURIComponent(match[1]).replace(/^<|>$/g, ""))
+    );
+    const missingParts = extractBodyStructureImages(structureLines.join("\n")).filter((part) => {
+      if (!part.contentId || existingContentIds.has(part.contentId)) return false;
+      return unresolvedContentIds.has(part.contentId);
+    });
+    for (let index = 0; index < missingParts.length; index += 1) {
+      const part = missingParts[index];
+      const tag = `A${5 + index}`;
+      client.write(`${tag} UID FETCH ${uid} (BODY.PEEK[${part.partNumber}])`);
+      const partLines = await client.readUntil((line) => new RegExp(`^${tag} (OK|NO|BAD)`, "i").test(line), 30_000);
+      const image = bodyStructureImageFromFetch(part, partLines.join("\n"));
+      if (!image) continue;
+      email.images.push(image);
+      existingContentIds.add(image.contentId);
+    }
+    email.htmlBody = inlineImagesInHtml(email.htmlBody || "", email.images);
+    client.write(`A${5 + missingParts.length} LOGOUT`);
+    return email;
   } finally {
     client.end();
   }

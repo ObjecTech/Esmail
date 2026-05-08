@@ -45,6 +45,8 @@ const museumEmail: Email = {
   summaryBullets: ["校庆活动通知。"]
 };
 
+const aiSearchPlaceholder = "搜索或询问邮件内容...";
+
 describe("AiScreen", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -63,7 +65,7 @@ describe("AiScreen", () => {
       />
     );
 
-    const input = screen.getByPlaceholderText("搜索、写作或询问任何内容...");
+    const input = screen.getByPlaceholderText(aiSearchPlaceholder);
     fireEvent.change(input, { target: { value: "继续刚才的问题" } });
     fireEvent.click(screen.getByLabelText("发送"));
 
@@ -87,7 +89,7 @@ describe("AiScreen", () => {
 
     render(<AiScreen language="zh" onAskAssistant={askAssistant} />);
 
-    const input = screen.getByPlaceholderText("搜索、写作或询问任何内容...");
+    const input = screen.getByPlaceholderText(aiSearchPlaceholder);
     fireEvent.change(input, { target: { value: "今天需要回复的邮件" } });
     fireEvent.click(screen.getByLabelText("发送"));
 
@@ -105,7 +107,7 @@ describe("AiScreen", () => {
 
     render(<AiScreen language="zh" onAskAssistant={askAssistant} />);
 
-    const input = screen.getByPlaceholderText("搜索、写作或询问任何内容...");
+    const input = screen.getByPlaceholderText(aiSearchPlaceholder);
     fireEvent.change(input, { target: { value: "今天需要回复的邮件" } });
     fireEvent.click(screen.getByLabelText("发送"));
 
@@ -115,14 +117,14 @@ describe("AiScreen", () => {
 
     expect(screen.getByText("今天需要回复的邮件")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "历史对话" })).toBeTruthy();
-    expect(screen.queryByPlaceholderText("搜索、写作或询问任何内容...")).toBeNull();
+    expect(screen.queryByPlaceholderText(aiSearchPlaceholder)).toBeNull();
 
     fireEvent.click(screen.getByText("今天需要回复的邮件"));
 
     expect(screen.getAllByText("今天需要回复的邮件").some((node) => node.closest(".ai-message-user"))).toBe(true);
     expect(screen.getByText("回复导师邮件。")).toBeTruthy();
     expect(screen.queryByText("暂无历史对话")).toBeNull();
-    expect(JSON.parse(localStorage.getItem("esmail.ai.history.v1") || "[]")).toHaveLength(1);
+    expect(JSON.parse(localStorage.getItem("esmail.ai.history.v2") || "[]")).toHaveLength(1);
   });
 
   it("deletes conversations from history without opening them", async () => {
@@ -133,7 +135,7 @@ describe("AiScreen", () => {
 
     render(<AiScreen language="zh" onAskAssistant={askAssistant} />);
 
-    const input = screen.getByPlaceholderText("搜索、写作或询问任何内容...");
+    const input = screen.getByPlaceholderText(aiSearchPlaceholder);
     fireEvent.change(input, { target: { value: "今天需要回复的邮件" } });
     fireEvent.click(screen.getByLabelText("发送"));
 
@@ -173,7 +175,7 @@ describe("AiScreen", () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText("搜索、写作或询问任何内容..."), {
+    fireEvent.change(screen.getByPlaceholderText(aiSearchPlaceholder), {
       target: { value: "我之前看到一封 coursework 的邮件，帮我找一下" }
     });
     fireEvent.click(screen.getByLabelText("发送"));
@@ -184,7 +186,7 @@ describe("AiScreen", () => {
     expect(openEmail).toHaveBeenCalledWith(courseworkEmail);
   });
 
-  it("expands cited email snippets inside the chat", async () => {
+  it("hides cited email excerpts until the summary is expanded", async () => {
     render(
       <AiScreen
         emails={[courseworkEmail]}
@@ -197,17 +199,96 @@ describe("AiScreen", () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText("搜索、写作或询问任何内容..."), {
+    fireEvent.change(screen.getByPlaceholderText(aiSearchPlaceholder), {
       target: { value: "coursework 邮件" }
     });
     fireEvent.click(screen.getByLabelText("发送"));
 
     expect(await screen.findByText("Coursework 1 submission receipt")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "展开片段" }));
+    expect(screen.queryByText(/You have submitted/)).toBeNull();
+    expect(screen.queryByText("Coursework 1 已提交。")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "展开总结" }));
 
     expect(screen.getAllByText("LM Core · 今天").length).toBeGreaterThan(1);
-    expect(screen.getAllByText(/You have submitted/).length).toBeGreaterThan(1);
     expect(screen.getByText("Coursework 1 已提交。")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "展开总结" })).toBeNull();
+    expect(screen.getByRole("button", { name: "收起总结" })).toBeTruthy();
+  });
+
+  it("uses the latest email summary when expanding an existing citation", async () => {
+    const staleEmail = {
+      ...examEmail,
+      summaryBullets: ["DTS206TC-2526-S2: Final Exam Schedule"]
+    };
+    const updatedEmail = {
+      ...examEmail,
+      summaryBullets: [
+        "The final exam for DTS206TC is scheduled for 11 June 2026.",
+        "The exam will take place from 2:00 PM to 4:00 PM."
+      ],
+      summaryGenerated: true as const,
+      summaryLanguage: "en" as const
+    };
+    const askAssistant = vi.fn().mockResolvedValue({
+      title: "DTS206TC Final Exam Schedule",
+      lines: ["Date and time are in the exam schedule email."]
+    });
+    const { rerender } = render(
+      <AiScreen
+        emails={[staleEmail]}
+        language="en"
+        onAskAssistant={askAssistant}
+        onOpenEmail={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Search or ask about mail..."), {
+      target: { value: "DTS206 final exam schedule" }
+    });
+    fireEvent.click(screen.getByLabelText("Send"));
+
+    expect(await screen.findByText("DTS206TC-2526-S2: Final Exam Schedule")).toBeTruthy();
+
+    rerender(
+      <AiScreen
+        emails={[updatedEmail]}
+        language="en"
+        onAskAssistant={askAssistant}
+        onOpenEmail={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand summary" }));
+
+    expect(screen.getByText("The final exam for DTS206TC is scheduled for 11 June 2026.")).toBeTruthy();
+    expect(screen.getByText("The exam will take place from 2:00 PM to 4:00 PM.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Collapse summary" })).toBeTruthy();
+    expect(screen.queryAllByText("DTS206TC-2526-S2: Final Exam Schedule")).toHaveLength(1);
+  });
+
+  it("replaces paste-email assistant headers when matching citations exist", async () => {
+    render(
+      <AiScreen
+        emails={[examEmail]}
+        language="en"
+        onAskAssistant={vi.fn().mockResolvedValue({
+          title: "Please paste the email text for **DTS206 Week 11**",
+          lines: ["Once you provide the content, I will summarize the key tasks."]
+        })}
+        onOpenEmail={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Search or ask about mail..."), {
+      target: { value: "DTS206 final exam schedule" }
+    });
+    fireEvent.click(screen.getByLabelText("Send"));
+
+    expect(await screen.findByText("Found related emails")).toBeTruthy();
+    expect(screen.queryByText(/Please paste the email text/)).toBeNull();
+    expect(screen.getByText("DTS206TC-2526-S2: Final Exam Schedule")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Expand summary" })).toBeTruthy();
+    expect(screen.queryByText("考试时间和地点安排在 Final Exam Schedule 邮件中。")).toBeNull();
   });
 
   it("shows a placeholder for searching more mail when local matches are limited", async () => {
@@ -222,7 +303,7 @@ describe("AiScreen", () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText("搜索、写作或询问任何内容..."), {
+    fireEvent.change(screen.getByPlaceholderText(aiSearchPlaceholder), {
       target: { value: "帮我找一下之前看到的 Agoda 酒店优惠邮件" }
     });
     fireEvent.click(screen.getByLabelText("发送"));
@@ -246,7 +327,7 @@ describe("AiScreen", () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText("搜索、写作或询问任何内容..."), {
+    fireEvent.change(screen.getByPlaceholderText(aiSearchPlaceholder), {
       target: { value: "王超群老师对于考试的安排在哪里" }
     });
     fireEvent.click(screen.getByLabelText("发送"));

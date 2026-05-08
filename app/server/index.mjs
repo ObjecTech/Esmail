@@ -263,19 +263,14 @@ async function getMessageDetail(messageId) {
 }
 
 async function aiChat(prompt, language, emails = []) {
-  if (emails.length && shouldAnswerFromInboxContext(prompt)) {
-    return fallbackChatReply(prompt, language, emails);
-  }
-
   try {
     const reply = await callChatAnywhere({
-      apiKey: cfg.chatAnywhereApiKey,
-      baseUrl: cfg.chatAnywhereBaseUrl,
-      model: cfg.aiModel,
+      providers: cfg.chatAnywhereProviders,
       messages: [{ role: "user", content: buildContextualChatPrompt(prompt, emails, language) }],
-      temperature: 0.25
+      temperature: 0.25,
+      timeoutMs: 45_000
     });
-    if (emails.length && soundsLikeMissingMailboxAccess(reply)) {
+    if (emails.length && shouldAnswerFromInboxContext(prompt) && soundsLikeMissingMailboxAccess(reply)) {
       return fallbackChatReply(prompt, language, emails);
     }
     return reply;
@@ -295,11 +290,10 @@ async function aiDraft({ idea, language, tone }) {
 
   try {
     const text = await callChatAnywhere({
-      apiKey: cfg.chatAnywhereApiKey,
-      baseUrl: cfg.chatAnywhereBaseUrl,
-      model: cfg.aiModel,
+      providers: cfg.chatAnywhereProviders,
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.35
+      temperature: 0.35,
+      timeoutMs: 30_000
     });
     return parseJsonish(text, fallbackDraft({ idea, language, tone }));
   } catch {
@@ -307,14 +301,13 @@ async function aiDraft({ idea, language, tone }) {
   }
 }
 
-async function aiAnalyze(emails) {
+async function aiAnalyze(emails, language = "en") {
   try {
     const text = await callChatAnywhere({
-      apiKey: cfg.chatAnywhereApiKey,
-      baseUrl: cfg.chatAnywhereBaseUrl,
-      model: cfg.aiModel,
-      messages: [{ role: "user", content: summarizeAnalysisPrompt(emails) }],
-      temperature: 0.2
+      providers: cfg.chatAnywhereProviders,
+      messages: [{ role: "user", content: summarizeAnalysisPrompt(emails, language) }],
+      temperature: 0.2,
+      timeoutMs: 60_000
     });
     return normalizeAnalysis(parseJsonish(text, fallbackAnalysis(emails)), emails);
   } catch {
@@ -331,7 +324,7 @@ function normalizeAnalysis(analysis, emails) {
       ...item,
       categoryIds: categoryIds.length ? categoryIds : normalizeCategoryIds(fallback.find((fallbackItem) => fallbackItem.id === item.id)?.categoryIds),
       categoryId: primaryCategoryId(categoryIds.length ? categoryIds : fallback.find((fallbackItem) => fallbackItem.id === item.id)?.categoryIds),
-      summaryBullets: Array.isArray(item.summaryBullets) ? item.summaryBullets.slice(0, 3).map(String) : []
+      summaryBullets: Array.isArray(item.summaryBullets) ? item.summaryBullets.slice(0, 5).map(String) : []
     };
   });
 }
@@ -446,7 +439,7 @@ export async function handleApi(req, res) {
 
     if (url.pathname === "/api/ai/chat" && req.method === "POST") {
       const body = await readJson(req);
-      const content = await aiChat(body.prompt || "", body.language || "zh", body.emails || []);
+      const content = await aiChat(body.prompt || "", body.language || "en", body.emails || []);
       return sendJson(res, 200, { content });
     }
 
@@ -457,7 +450,7 @@ export async function handleApi(req, res) {
 
     if (url.pathname === "/api/ai/analyze-inbox" && req.method === "POST") {
       const body = await readJson(req);
-      return sendJson(res, 200, { analysis: await aiAnalyze(body.emails || []) });
+      return sendJson(res, 200, { analysis: await aiAnalyze(body.emails || [], body.language || "en") });
     }
 
     if (url.pathname === "/api/health") {

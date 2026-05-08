@@ -20,9 +20,30 @@ function normalizeText(text: string) {
   return text.toLowerCase().replace(/[^\p{L}\p{N}\s]+/gu, " ");
 }
 
+function isLatinToken(token: string) {
+  return /^[a-z0-9]+$/i.test(token);
+}
+
+function textIncludesToken(text: string, token: string) {
+  const normalizedToken = normalizeText(token).trim();
+  if (!normalizedToken) return false;
+  const normalizedText = normalizeText(text);
+  if (!isLatinToken(normalizedToken)) return normalizedText.includes(normalizedToken);
+  const textTokens = normalizedText.split(/\s+/);
+  if (textTokens.includes(normalizedToken)) return true;
+  if (/^[a-z]+\d{3,}$/i.test(normalizedToken)) {
+    return textTokens.some((textToken) => textToken.startsWith(normalizedToken));
+  }
+  if (/^\d{3}$/.test(normalizedToken)) {
+    return textTokens.some((textToken) => new RegExp(`^[a-z]{2,}${normalizedToken}[a-z0-9]*$`, "i").test(textToken));
+  }
+  return false;
+}
+
 function promptTokens(prompt: string) {
   const normalized = normalizeText(prompt);
-  const latinTokens = normalized.split(/\s+/).filter((token) => token.length >= 2);
+  const latinTokens = prompt.match(/[a-z0-9]{2,}/gi)?.map((token) => token.toLowerCase()) || [];
+  const normalizedLatinTokens = normalized.split(/\s+/).filter((token) => token.length >= 2 && /^[a-z0-9]+$/i.test(token));
   const cjkTokens = (prompt.match(/[\u4e00-\u9fff]{2,}/g) || []).flatMap((segment) => {
     const bigrams = Array.from({ length: Math.max(0, segment.length - 1) }, (_, index) => segment.slice(index, index + 2));
     return [segment, ...bigrams];
@@ -31,7 +52,21 @@ function promptTokens(prompt: string) {
   if (/[考试]/.test(prompt)) semanticTokens.push("exam", "final");
   if (prompt.includes("安排") || prompt.includes("日程") || prompt.includes("时间")) semanticTokens.push("schedule", "arrangement", "timetable");
   if (prompt.includes("王超群") || prompt.includes("超群")) semanticTokens.push("chaoqun", "wang");
-  return Array.from(new Set([...latinTokens, ...cjkTokens, ...semanticTokens]));
+  return Array.from(new Set([...latinTokens, ...normalizedLatinTokens, ...cjkTokens, ...semanticTokens]));
+}
+
+function coursePrefixTokens(prompt: string) {
+  const matches = prompt.match(/[a-z]{2,4}\d{0,3}(?:tc)?/gi) || [];
+  return Array.from(new Set(matches.map((token) => token.toLowerCase().replace(/tc$/, "")).filter((token) => /^(dts|ent)\d{0,3}$/.test(token))));
+}
+
+function textIncludesCoursePrefix(text: string, courseToken: string) {
+  const normalizedText = normalizeText(text);
+  const textTokens = normalizedText.split(/\s+/);
+  if (/\d/.test(courseToken)) {
+    return textTokens.some((token) => token.startsWith(courseToken));
+  }
+  return textTokens.some((token) => token.startsWith(courseToken) && /\d/.test(token));
 }
 
 function includesAny(prompt: string, terms: string[]) {
@@ -70,7 +105,37 @@ function excerptFor(email: Email, tokens: string[]) {
 }
 
 function citationMatchPercent(score: number) {
-  return Math.min(99, Math.round(score * 2.2));
+  return Math.min(96, Math.round(45 + score * 1.2));
+}
+
+function userPromptFromCitationQuery(prompt: string) {
+  return prompt
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean) || prompt;
+}
+
+function requiredTeacherTokens(userPrompt: string, tokens: string[]) {
+  if (!/(老师|教授|导师|teacher|professor|tutor)/i.test(userPrompt)) return [];
+  const ignored = new Set([
+    "exam",
+    "final",
+    "schedule",
+    "arrangement",
+    "timetable",
+    "coursework",
+    "assignment",
+    "homework",
+    "deadline",
+    "today",
+    "important",
+    "unread"
+  ]);
+
+  return tokens.filter((token) => {
+    const normalizedToken = normalizeText(token).trim();
+    return isLatinToken(normalizedToken) && normalizedToken.length >= 3 && !ignored.has(normalizedToken);
+  });
 }
 
 export function isSearchLikePrompt(prompt: string, language: Language = "zh") {
@@ -86,6 +151,7 @@ export function isSearchLikePrompt(prompt: string, language: Language = "zh") {
 }
 
 export function findRelevantEmailCitations(prompt: string, emails: Email[] = [], language: Language = "zh"): EmailCitation[] {
+  const userPrompt = userPromptFromCitationQuery(prompt);
   const ignoredTokens = new Set([
     "邮件",
     "邮箱",
@@ -105,6 +171,8 @@ export function findRelevantEmailCitations(prompt: string, emails: Email[] = [],
     "net"
   ]);
   const tokens = promptTokens(prompt).filter((token) => !ignoredTokens.has(token.toLowerCase()));
+  const teacherTokens = requiredTeacherTokens(userPrompt, promptTokens(userPrompt));
+  const requiredCoursePrefixes = coursePrefixTokens(userPrompt);
   const terms = language === "en" ? intentTerms.en : intentTerms.zh;
   const wantsToday = includesAny(prompt, terms.today);
   const wantsImportant = includesAny(prompt, terms.important);
@@ -115,21 +183,33 @@ export function findRelevantEmailCitations(prompt: string, emails: Email[] = [],
     .filter((email) => !email.deleted && !email.archived)
     .map((email) => {
       const categoryIds = emailCategoryIds(email);
-      const haystack = normalizeText(relevantText(email));
+      const emailText = relevantText(email);
+      if (teacherTokens.length && !teacherTokens.some((token) => textIncludesToken(emailText, token))) {
+        return null;
+      }
+      if (requiredCoursePrefixes.length && !requiredCoursePrefixes.some((token) => textIncludesCoursePrefix(emailText, token))) {
+        return null;
+      }
+      const haystack = normalizeText(emailText);
       const tokenScore = tokens.reduce((score, token) => {
         const normalizedToken = normalizeText(token).trim();
         if (!normalizedToken) return score;
-        if (!haystack.includes(normalizedToken)) return score;
-        if (normalizeText(email.subject).includes(normalizedToken)) return score + 20;
-        if (normalizeText(email.senderName).includes(normalizedToken) || normalizeText(email.senderEmail).includes(normalizedToken)) return score + 16;
+        if (!textIncludesToken(haystack, normalizedToken)) return score;
+        if (textIncludesToken(email.subject, normalizedToken)) return score + 20;
+        if (textIncludesToken(email.senderName, normalizedToken) || textIncludesToken(email.senderEmail, normalizedToken)) return score + 16;
         return score + 10;
+      }, 0);
+      const courseScore = requiredCoursePrefixes.reduce((score, token) => {
+        if (!textIncludesCoursePrefix(emailText, token)) return score;
+        return score + (textIncludesCoursePrefix(email.subject, token) ? 28 : 16);
       }, 0);
       const todayScore = wantsToday && ["今天", "today"].includes(String(email.dateLabel).toLowerCase()) ? 14 : 0;
       const importantScore = wantsImportant && (email.priority === "high" || categoryIds.includes("deadline")) ? 24 : 0;
       const unreadScore = wantsUnread && email.unread !== false ? 6 : 0;
       const intentScore = todayScore + importantScore + unreadScore;
-      const categoryScore = intentScore || tokenScore ? (categoryIds.includes("deadline") ? 6 : categoryIds.includes("course") ? 5 : 0) : 0;
-      const score = tokenScore + intentScore + categoryScore + (intentScore || tokenScore ? priorityScore[email.priority] : 0);
+      const hasMeaningfulMatch = intentScore || tokenScore || courseScore;
+      const categoryScore = hasMeaningfulMatch ? (categoryIds.includes("deadline") ? 6 : categoryIds.includes("course") ? 5 : 0) : 0;
+      const score = tokenScore + courseScore + intentScore + categoryScore + (hasMeaningfulMatch ? priorityScore[email.priority] : 0);
       const matchPercent = citationMatchPercent(score);
 
       return {
@@ -141,6 +221,7 @@ export function findRelevantEmailCitations(prompt: string, emails: Email[] = [],
         categoryIds
       };
     })
+    .filter((citation): citation is EmailCitation => Boolean(citation))
     .filter((citation) => citationMatchPercent(citation.score) >= 70)
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
@@ -227,6 +308,21 @@ export function getAssistantReply(prompt: string, language: Language = "zh", ema
     return {
       title: "写信风格",
       lines: ["简短直接。", "先说明目的，再给时间点。", "结尾保持礼貌。"]
+    };
+  }
+
+  const citations = findRelevantEmailCitations(prompt, emails, language);
+  if (citations.length) {
+    const email = citations[0].email;
+    const summary = email.summaryBullets?.length
+      ? email.summaryBullets
+      : [email.body || email.snippet || email.subject].filter(Boolean);
+    return {
+      title: email.subject || (isEnglish ? "Relevant mail" : "相关邮件"),
+      lines: [
+        isEnglish ? `Sender: ${email.senderName}` : `发件人：${email.senderName}`,
+        ...summary.slice(0, 5).map((line) => String(line).trim()).filter(Boolean)
+      ]
     };
   }
 

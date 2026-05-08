@@ -5,7 +5,7 @@ export type RuleField = "domain" | "sender" | "subject" | "content";
 export type RuleOperator = "contains";
 export type Screen = "inbox" | "todos" | "ai" | "settings";
 export type Language = "zh" | "en";
-export type Theme = "classic" | "white";
+export type Theme = "white" | "morandi";
 export type SettingsMode = "customView" | "smartLabel";
 export type MailboxView = "inbox" | "all" | "starred" | "snoozed" | "drafts" | "sent" | "archive" | "spam" | "trash";
 export type CustomViewFilterKey = "unread" | "sentToMe" | "ccMe" | "attachments";
@@ -53,6 +53,8 @@ export interface Email {
   unread?: boolean;
   hasAttachments?: boolean;
   fullLoaded?: boolean;
+  summaryGenerated?: boolean;
+  summaryLanguage?: Language;
 }
 
 export interface EmailImage {

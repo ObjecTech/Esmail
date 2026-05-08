@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { completeTodo, createInitialTodos } from "./todos";
+import { completeTodo, createInitialTodos, createTodoFromEmail } from "./todos";
 import type { Email } from "./types";
 
 const emails: Email[] = [
@@ -36,5 +36,12 @@ describe("todo helpers", () => {
     const completed = completeTodo([todo], todo.id);
 
     expect(completed[0].status).toBe("completed");
+  });
+
+  it("uses English fallback copy for manually created todos by default", () => {
+    const todo = createTodoFromEmail({ ...emails[0], aiAction: undefined });
+
+    expect(todo.title).toBe("Handle: Join workspace");
+    expect(todo.createdAtLabel).toBe("Now");
   });
 });

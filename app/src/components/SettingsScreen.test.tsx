@@ -37,6 +37,18 @@ function renderSettings(overrides: Partial<React.ComponentProps<typeof SettingsS
 }
 
 describe("SettingsScreen", () => {
+  it("opens the smart label form with empty fields and placeholder guidance", () => {
+    renderSettings({ mode: "smartLabel" });
+
+    const labelInput = screen.getByPlaceholderText("输入你喜欢的标签名称");
+    const hintInput = screen.getByPlaceholderText("详细描述哪些邮件符合此标签，以帮助 Esmail AI 更智能地工作。");
+
+    expect((labelInput as HTMLInputElement).value).toBe("");
+    expect((hintInput as HTMLTextAreaElement).value).toBe("");
+    expect(screen.getByText("0/30")).toBeTruthy();
+    expect(screen.getByText("0/100")).toBeTruthy();
+  });
+
   it("toggles filter conditions and updates the date filter", () => {
     const props = renderSettings();
 

@@ -55,7 +55,7 @@ export function TodosScreen({
     <section className="screen-section todos-screen">
       <header className="center-title-header">
         {editMode ? (
-          <button className="edit-confirm-button" onClick={finishEditing} type="button" aria-label="完成编辑">
+          <button className="edit-confirm-button" onClick={finishEditing} type="button" aria-label={language === "zh" ? "完成编辑" : "Finish editing"}>
             <Check size={31} strokeWidth={3} />
           </button>
         ) : (
@@ -68,11 +68,11 @@ export function TodosScreen({
           <p>{language === "zh" ? "刚刚更新" : "Updated now"}</p>
         </div>
         {showCompleted ? (
-          <IconButton label="关闭完成项" onClick={() => setShowCompleted(false)}>
+          <IconButton label={language === "zh" ? "关闭完成项" : "Close completed"} onClick={() => setShowCompleted(false)}>
             <X size={28} />
           </IconButton>
         ) : (
-        <IconButton label="待办菜单" onClick={() => setMenuOpen((open) => !open)}>
+        <IconButton label={language === "zh" ? "待办菜单" : "Todo menu"} onClick={() => setMenuOpen((open) => !open)}>
           <Menu size={28} />
         </IconButton>
         )}
